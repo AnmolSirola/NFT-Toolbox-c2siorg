@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import path from "path";
-import { nftToolbox } from "../src/index";
+import { nftToolbox } from "../../../index";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const account = JSON.parse(
@@ -69,8 +69,8 @@ const uploadSingleExample = async function () {
 
 // nftToolbox.initFileStorageService({
 // 	service: "infura",
-// 	username: account.INFURA_USERNAME,
-// 	password: account.INFURA_PASSWORD,
+//  key: account.INFURA_KEY,
+//  secret: account.INFURA_SECRET,
 // });
 
 //////////////////////////////////////////////////////////////////////////////////

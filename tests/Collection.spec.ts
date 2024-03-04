@@ -4,7 +4,7 @@ import sinon from "sinon";
 import mock from "mock-fs";
 import path from "path";
 import canvas from "canvas";
-import { Collection } from "../src/classes/Collection";
+import { Collection } from "../src/chains/Ethereum/contracts/EthereumCollection";
 
 const expect = chai.expect;
 

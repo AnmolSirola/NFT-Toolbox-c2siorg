@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import canvas from "canvas";
-import { ProgressBar } from "../helpers/ProgressBar";
+import { ProgressBar } from "../../../helpers/ProgressBar";
 
 const DNA_DELIMITER = "+";
 

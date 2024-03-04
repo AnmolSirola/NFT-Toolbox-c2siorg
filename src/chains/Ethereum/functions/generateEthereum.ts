@@ -1,5 +1,5 @@
 import path from "path";
-import { nftToolbox } from "../src/index";
+import { nftToolbox } from "../../../index";
 
 nftToolbox.initCollection({
 	name: "Demo Collection",

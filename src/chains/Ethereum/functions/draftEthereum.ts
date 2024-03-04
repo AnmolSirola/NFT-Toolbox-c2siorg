@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import path from "path";
-import { nftToolbox } from "../src/index";
+import { nftToolbox } from "../../../index";
 
 nftToolbox.initContract({
 	name: "DemoContract",
@@ -17,5 +17,3 @@ nftToolbox.draftContract({
 	mintable: true,
 	incremental: true,
 });
-
-nftToolbox.deployContract();
