@@ -1,5 +1,6 @@
-import { Collection, LayerSchema } from "./chains/Ethereum/contracts/EthereumCollection";
-import { Contract, ContractAttributes, DraftOptions } from "./chains/Ethereum/contracts/EthereumContract";
+
+import { Collection, LayerSchema } from "./chains/Ethereum/contracts/EthereumCollection"; //Edit it for solana, tezos, aptos, flow accordingly
+import { Contract, ContractAttributes, DraftOptions } from "./chains/Ethereum/contracts/EthereumContract"; //Edit it for solana, tezos, aptos, flow accordingly
 import { FileStorage } from "./classes/FileStorage";
 import { execSync } from "child_process";
 import { Storj } from "./classes/Storj";

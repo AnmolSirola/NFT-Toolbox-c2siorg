@@ -1,7 +1,7 @@
 / Import necessary modules
 import { readFileSync } from "fs";
 import path from "path";
-import { nftToolbox } from "../src/index";
+import { nftToolbox } from "../../../index";
 import { PublicKey } from "@solana/web3.js";
 
 // Read account details from a JSON file (unused variable)
