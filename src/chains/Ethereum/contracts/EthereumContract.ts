@@ -1,11 +1,11 @@
 import fs from "fs";
-import { erc721, erc1155 } from "@openzeppelin/wizard";
+import { erc721, erc998, erc1151, erc1155 } from "@openzeppelin/wizard";
 import path from "path";
 import { ethers } from "ethers";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const solc = require("solc");
 
-type ercStandards = "ERC721" | "ERC1155";
+type ercStandards = "ERC721" | "ERC998" | "ERC1151" | "ERC1155";
 type networks =
 	| "homestead"
 	| "ropsten"
@@ -38,21 +38,60 @@ interface ERC1155Options {
     supply?: boolean;
     updatableUri?: boolean;
 }
+
+interface ERC998Options {
+    baseUri: string;
+    burnable?: boolean;
+    pausable?: boolean;
+    mintable?: boolean;
+    composable: boolean;
+    rootOwner: string; 
+    rootId: number; 
+    extension: string; 
+    extensionId: number;
+}	
+
+interface ERC1151Options {
+    baseUri: string;
+    burnable?: boolean;
+    pausable?: boolean;
+    mintable?: boolean;
+    nftOwners: Record<string, string>; 
+    ownerToNFTCount: Record<string, number>; 
+    nftApprovals: Record<string, string>; 
+    nftBalances: Record<string, number>; 
+    nftData: Record<string, string>; 
+    operatorApprovals: Record<string, Record<string, boolean>>; 
+}
+
 */
 export interface DraftOptions {
-	baseUri: string;
-	// Common options
-	burnable?: boolean;
-	pausable?: boolean;
-	mintable?: boolean;
-	// ERC721 options
-	enumerable?: boolean;
-	uriStorage?: boolean;
-	incremental?: boolean;
-	votes?: boolean;
-	// ERC1155 options
-	supply?: boolean;
-	updatableUri?: boolean;
+    baseUri: string;
+    // Common options
+    burnable?: boolean;
+    pausable?: boolean;
+    mintable?: boolean;
+    // ERC721 options
+    enumerable?: boolean;
+    uriStorage?: boolean;
+    incremental?: boolean;
+    votes?: boolean;
+    // ERC1155 options
+    supply?: boolean;
+    updatableUri?: boolean;
+    // ERC998 options
+    composable?: boolean;
+    rootOwner?: string;
+    rootId?: number;
+    extension?: string;
+    extensionId?: number;
+    // ERC1151 options
+    nftOwners?: Record<string, string>;
+    ownerToNFTCount?: Record<string, number>;
+    nftApprovals?: Record<string, string>;
+    nftBalances?: Record<string, number>;
+    nftData?: Record<string, string>;
+    operatorApprovals?: Record<string, Record<string, boolean>>;
 }
 
 export interface DeployConfigs {
@@ -190,6 +229,19 @@ export class Contract {
 					...options,
 				});
 				break;
+			case "ERC998": 
+                contractCode = erc998.print({
+                    name: this.name,
+                    symbol: this.symbol,
+                    ...options,
+                });
+                break;
+			case "ERC1151": 
+                contractCode = erc1151.print({
+                    name: this.name,
+                    ...options,
+                });
+                break;
 		}
 		this.print(contractCode);
 		console.log(`Contract created : ${this.dir}`);
