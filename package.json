@@ -39,13 +39,18 @@
 		"nft.storage": "^6.4.1",
 		"nock": "^13.2.9",
 		"sinon": "^14.0.0",
+		"solc": "^0.8.15",
 		"ts-mocha": "^10.0.0",
 		"ts-node": "^10.9.2",
 		"typescript": "^5.4.2"
 	},
 	"dependencies": {
+		"@babel/plugin-transform-modules-commonjs": "^7.21.2",
 		"@openzeppelin/contracts": "^4.7.1",
 		"@openzeppelin/wizard": "^0.1.1",
+		"@project-serum/anchor": "^0.26.0",
+		"@solana/spl-token": "^0.3.8",
+		"@solana/web3.js": "^1.77.0",
 		"axios": "^0.27.2",
 		"bignumber.js": "^9.1.0",
 		"canvas": "^2.11.2",
@@ -54,7 +59,7 @@
 		"form-data": "^4.0.0",
 		"fs": "^0.0.1-security",
 		"path": "^0.12.7",
-		"solc": "^0.8.15",
+		"types": "^0.1.1",
 		"web3stash": "^0.0.5"
 	}
 }
