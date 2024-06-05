@@ -1,17 +1,17 @@
 import fs from "fs";
 import { erc721, erc1155 } from "@openzeppelin/wizard";
+import { erc998 } from "./erc998";
+import { erc1151 } from "./erc1151";
 import path from "path";
 import { ethers } from "ethers";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const solc = require("solc");
 
-type ercStandards = "ERC721" | "ERC1155";
+
+type ercStandards = "ERC721"|"ERC998"| "ERC1151"|"ERC1155";
 type networks =
 	| "homestead"
-	| "ropsten"
-	| "rinkeby"
 	| "goerli"
-	| "kovan"
 	| "matic"
 	| "maticmum";
 
@@ -38,6 +38,29 @@ interface ERC1155Options {
     supply?: boolean;
     updatableUri?: boolean;
 }
+
+interface ERC1151Options {
+    baseUri: string;
+    burnable?: boolean;
+    pausable?: boolean;
+    mintable?: boolean;
+    nftOwners: Record<string, string>; 
+    ownerToNFTCount: Record<string, number>; 
+    nftApprovals: Record<string, string>; 
+    nftBalances: Record<string, number>; 
+    nftData: Record<string, string>; 
+    operatorApprovals: Record<string, Record<string, boolean>>; 
+}
+
+interface ERC1155Options {
+	name: string;
+    uri: string;
+    burnable?: boolean;
+    pausable?: boolean;
+    mintable?: boolean;
+    supply?: boolean;
+    updatableUri?: boolean;
+}
 */
 export interface DraftOptions {
 	baseUri: string;
@@ -50,9 +73,23 @@ export interface DraftOptions {
 	uriStorage?: boolean;
 	incremental?: boolean;
 	votes?: boolean;
+	// ERC998 options
+	composable?: boolean;
+	rootOwner?: string;
+	rootId?: number;
+	extension?: string;
+	extensionId?: number;
+	// ERC1151 options
+	nftOwners?: Record<string, string>;
+	ownerToNFTCount?: Record<string, number>;
+	nftApprovals?: Record<string, string>;
+	nftBalances?: Record<string, number>;
+	nftData?: Record<string, string>;
+	operatorApprovals?: Record<string, Record<string, boolean>>;
 	// ERC1155 options
 	supply?: boolean;
 	updatableUri?: boolean;
+
 }
 
 export interface DeployConfigs {
@@ -191,24 +228,56 @@ export class Contract {
 					...options,
 				});
 				break;
+			case "ERC998": 
+                contractCode = erc998.print({
+                    name: this.name,
+                    symbol: this.symbol,
+                    ...options,
+                });
+                break;
+			case "ERC1151":
+				contractCode = erc1151.print({
+					name: this.name,
+					symbol: this.symbol,
+					...options,
+				});
+				break;
+			}
+			this.print(contractCode);
+			console.log(`Contract created : ${this.dir}`);
 		}
-		this.print(contractCode);
-		console.log(`Contract created : ${this.dir}`);
-	}
 
 	// Returns parsed object of ABI
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	compile(): any {
 		function findImports(importPath: string) {
-			if (importPath.startsWith("@openzeppelin"))
-				return {
-					contents: fs
-						.readFileSync(
-							path.join(process.cwd(), "node_modules", importPath)
-						)
-						.toString(),
-				};
-			else {
+			if (importPath.startsWith("@openzeppelin")) {
+				if (importPath.includes("ERC998")) {
+					return {
+						contents: fs
+							.readFileSync(
+								path.join(process.cwd(), "node_modules", "@openzeppelin/contracts/token/ERC998", importPath.split("/").pop() ?? "")
+							)
+							.toString(),
+					};
+				} else if (importPath.includes("ERC1151")) {
+					return {
+						contents: fs
+							.readFileSync(
+								path.join(process.cwd(), "node_modules", "@openzeppelin/contracts/token/ERC1151", importPath.split("/").pop() ?? "")
+							)
+							.toString(),
+					};
+				} else {
+					return {
+						contents: fs
+							.readFileSync(
+								path.join(process.cwd(), "node_modules", importPath)
+							)
+							.toString(),
+					};
+				}
+			} else {
 				return { error: "OPEN ZEPPELIN IMPORT FAILED" };
 			}
 		}
