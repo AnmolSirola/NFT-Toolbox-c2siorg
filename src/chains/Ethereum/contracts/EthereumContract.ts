@@ -29,14 +29,16 @@ interface ERC721Options {
     votes?: boolean;
 }
 
-interface ERC1155Options {
-	name: string;
-    uri: string;
+interface ERC998Options {
+    baseUri: string;
     burnable?: boolean;
     pausable?: boolean;
     mintable?: boolean;
-    supply?: boolean;
-    updatableUri?: boolean;
+    composable: boolean;
+    rootOwner: string; 
+    rootId: number; 
+    extension: string; 
+    extensionId: number;
 }
 
 interface ERC1151Options {

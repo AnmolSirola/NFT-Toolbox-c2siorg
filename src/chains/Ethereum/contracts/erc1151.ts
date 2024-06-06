@@ -46,8 +46,8 @@ export function printERC1151(opts: ERC1151Options): string {
 
 // Define the default values for ERC1151 options
 export const defaults: Required<ERC1151Options> = {
-    name: 'MyERC1151',
-    symbol: 'ERC1151',
+    name: 'ERC1151',
+    symbol: 'ETH',
     baseUri: '',
     burnable: false,
     pausable: false,
