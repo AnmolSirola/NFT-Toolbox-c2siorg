@@ -8,7 +8,7 @@ nftToolbox.initEthereumContract({
 	dir: path.join(__dirname, "Contracts"),
 	standard: "ERC721",
 	connection: JSON.parse(
-		readFileSync(path.join(__dirname, "connection.json")).toString()
+		readFileSync(path.join(__dirname, "..", "..", "..", "connection.json")).toString()
 	),
 });
 
