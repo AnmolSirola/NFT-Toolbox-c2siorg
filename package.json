@@ -44,6 +44,7 @@
 		"@irys/sdk": "^0.2.1",
 		"@openzeppelin/contracts": "^4.7.1",
 		"@openzeppelin/wizard": "^0.1.1",
+		"arweave": "^1.15.1",
 		"axios": "^0.27.2",
 		"bignumber.js": "^9.1.0",
 		"canvas": "^2.11.2",
@@ -51,7 +52,12 @@
 		"ethers": "^5.6.9",
 		"form-data": "^4.0.0",
 		"fs": "^0.0.1-security",
+		"ipfs-http-client": "^60.0.1",
+		"keccak256": "^1.0.6",
+		"merkletreejs": "^0.3.11",
 		"path": "^0.12.7",
-		"solc": "^0.8.15"
+		"solc": "^0.8.15",
+		"web3": "^4.10.0",
+		"web3-utils": "^4.3.0"
 	}
 }
