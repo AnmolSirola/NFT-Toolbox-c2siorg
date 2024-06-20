@@ -18,7 +18,7 @@
 	},
 	"homepage": "https://github.com/scorelab/NFT-Toolbox#readme",
 	"devDependencies": {
-		"@pinata/sdk": "^1.1.26",
+		"@pinata/sdk": "^1.2.1",
 		"@types/chai": "^4.3.1",
 		"@types/chai-as-promised": "^7.1.5",
 		"@types/mime": "^3.0.1",
