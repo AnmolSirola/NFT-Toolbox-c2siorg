@@ -177,7 +177,7 @@ const recipients = [
   '0x8B8f8ffCC5EFbFF06f805D9908A8BC3918a53142',
   '0x187C675C52a3f606a1Aaf35Ae05C652503329Cd2',
 ];
-const tokenIds = [1, 2, 3]; // Starting from 1
+const tokenIds = [1, 2, 3]; 
 const privateKey = '0f60d01fe41976c2a847cf929ec2dc1d1b8c40f6a044ae0dab48ddc2e36d6c42';
 
 offChain(recipients, tokenIds, privateKey).catch(console.error);

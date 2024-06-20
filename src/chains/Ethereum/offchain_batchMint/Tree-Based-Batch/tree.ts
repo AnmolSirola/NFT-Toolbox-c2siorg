@@ -75,7 +75,7 @@ function createMerkleTree(recipients: string[]) {
 async function offChainMerkleBatchMint(recipients: string[], privateKey: string, metadataDir: string) {
   console.log(`Starting off-chain Merkle batch minting for ${recipients.length} recipients...`);
 
-  const batchSize = 100; // Set the batch size for minting
+  const batchSize = 100; // Setting the batch size for minting
   const numBatches = Math.ceil(recipients.length / batchSize);
 
   const assetsDir = path.join(metadataDir, 'assets');
@@ -86,7 +86,7 @@ async function offChainMerkleBatchMint(recipients: string[], privateKey: string,
 
   let lastProcessedIndex = 0;
 
-  // Check if there's a saved state
+  // Checking if there's a saved state
   if (fs.existsSync(stateFile)) {
     const savedState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
     lastProcessedIndex = savedState.lastProcessedIndex;
@@ -109,7 +109,7 @@ async function offChainMerkleBatchMint(recipients: string[], privateKey: string,
     const signedSetMerkleRootTx = await web3.eth.accounts.signTransaction(setMerkleRootTx, privateKey);
     await web3.eth.sendSignedTransaction(signedSetMerkleRootTx.rawTransaction as string);
 
-    // Iterate over each batch
+    // Iterating over each batch
     for (let i = Math.floor(lastProcessedIndex / batchSize); i < numBatches; i++) {
       const start = Math.max(i * batchSize, lastProcessedIndex);
       const end = Math.min((i + 1) * batchSize, recipients.length);
@@ -120,7 +120,7 @@ async function offChainMerkleBatchMint(recipients: string[], privateKey: string,
 
       const batchUris: string[] = [];
 
-      // Upload metadata and images for each token in the batch
+      // Uploading metadata and images for each token in the batch
       for (let j = 0; j < batchRecipients.length; j++) {
         const tokenId = start + j + 1;
         const imagePath = path.join(assetsDir, `${tokenId}.png`);
@@ -194,7 +194,7 @@ async function offChainMerkleBatchMint(recipients: string[], privateKey: string,
     }
 
     console.log('Off-chain Merkle batch minting completed.');
-    // Only try to delete the state file if it exists
+    // We will only try to delete the state file if it exists
     if (fs.existsSync(stateFile)) {
       fs.unlinkSync(stateFile);
       console.log('Minting state file deleted.');
@@ -213,7 +213,7 @@ const recipients = [
   '0x187C675C52a3f606a1Aaf35Ae05C652503329Cd2',
 ];
 const privateKey = '0x0f60d01fe41976c2a847cf929ec2dc1d1b8c40f6a044ae0dab48ddc2e36d6c42';
-const metadataDir = path.join(__dirname, '..', 'Data'); // Directory containing your metadata and assets
+const metadataDir = path.join(__dirname, '..', 'Data');
 
 offChainMerkleBatchMint(recipients, privateKey, metadataDir);
 
