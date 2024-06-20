@@ -1,8 +1,6 @@
 import Web3 from 'web3';
 import { AbiItem } from 'web3-utils';
 import MyNFT from "./sequential.json";
-import fs from 'fs';
-import path from 'path';
 
 // Web3 instance with the Sepolia network provider URL
 const web3 = new Web3('https://sepolia.infura.io/v3/b1174536ea344728a2d2eab8aa405f12');
