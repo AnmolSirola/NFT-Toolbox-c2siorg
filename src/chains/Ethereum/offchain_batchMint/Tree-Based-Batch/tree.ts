@@ -1,57 +1,87 @@
-import { MerkleTree } from 'merkletreejs';
-import keccak256 from 'keccak256';
 import Web3 from 'web3';
 import { AbiItem } from 'web3-utils';
 import MyNFT from "./tree.json";
+import { MerkleTree } from 'merkletreejs';
+import keccak256 from 'keccak256';
 
 // Web3 instance with the Sepolia network provider URL
-const web3 = new Web3('https://sepolia.infura.io/v3/b1174536ea344728a2d2eab8aa405f12');
+const web3 = new Web3('https://eth-sepolia.g.alchemy.com/v2/KyqgnjeQFS4dVlncp3fV3TQLU585Bpuh');
 
 // Contract instance using the MyNFT ABI and contract address
 const myNFTContract = new web3.eth.Contract(
   MyNFT as AbiItem[],
-  '0xd9145CCE52D386f254917e481eB44e9943F39138' 
+  '0xd9145CCE52D386f254917e481eB44e9943F39138' // Replace with the actual contract address
 );
 
-// Function to create a Merkle tree from token data
-function createMerkleTree(tokenData: string[]) {
-  const leaves = tokenData.map(data => keccak256(data));
+// Function to create a Merkle tree and generate proofs
+function createMerkleTree(recipients: string[]) {
+  const leaves = recipients.map((recipient) =>
+    keccak256(web3.utils.soliditySha3(recipient))
+  );
   const tree = new MerkleTree(leaves, keccak256, { sort: true });
-  return tree;
+  const root = tree.getHexRoot();
+  const proofs = recipients.map((recipient) =>
+    tree.getHexProof(keccak256(web3.utils.soliditySha3(recipient))).map((p: string) => p.toString())
+  );
+  return { root, proofs };
 }
 
-// Function for Merkle Tree-based batch minting
-async function merkleBatchMinting(recipients: string[], privateKey: string) {
-  const batchSize = 100; 
-  const numBatches = Math.ceil(recipients.length / batchSize); // Calculate the number of batches
+// Function for off-chain batch minting using Merkle tree
+async function offChainMerkleBatchMint(recipients: string[], privateKey: string) {
+  console.log(`Starting off-chain Merkle batch minting for ${recipients.length} recipients...`);
 
-  for (let i = 0; i < numBatches; i++) {
-    const batchRecipients = recipients.slice(i * batchSize, (i + 1) * batchSize);
+  try {
+    // Create the Merkle tree and generate proofs
+    const { root, proofs } = createMerkleTree(recipients);
 
-    const tokenData = batchRecipients.map(recipient => recipient);
+    // Set the Merkle root in the contract
+    const setMerkleRootData = myNFTContract.methods.setMerkleRoot(root).encodeABI();
+    const setMerkleRootTx = {
+      from: '0xf5C2232A42B89Ff64cCE52BB6f5A0a2beB3F73f0', // Include the from address
+      to: '0xd9145CCE52D386f254917e481eB44e9943F39138', // Replace with the actual contract address
+      data: setMerkleRootData,
+      gas: 100000, // Provide the gas limit
+      gasPrice: await web3.eth.getGasPrice(), // Provide the gas price
+    };
+    const signedSetMerkleRootTx = await web3.eth.accounts.signTransaction(setMerkleRootTx, privateKey);
+    await web3.eth.sendSignedTransaction(signedSetMerkleRootTx.rawTransaction as string);
 
-    const merkleTree = createMerkleTree(tokenData);
-    const rootHash = merkleTree.getHexRoot();
+    // Simulate the encoding of ABI data for batchMintNFTs
+    const batchMintData = myNFTContract.methods.batchMintNFTs(recipients, proofs).encodeABI();
 
-    // Set the Merkle root hash in the smart contract
-    await myNFTContract.methods.setMerkleRoot(rootHash).send({ from: '0xf5C2232A42B89Ff64cCE52BB6f5A0a2beB3F73f0', gas: '100000' });
+    // Get the current nonce for the sender's address
+    const nonce = await web3.eth.getTransactionCount('0xf5C2232A42B89Ff64cCE52BB6f5A0a2beB3F73f0');
 
-    // Generate proofs for each recipient in the batch
-    const proofs = batchRecipients.map(recipient => {
-      const leaf = keccak256(recipient);
-      const proof = merkleTree.getHexProof(leaf);
-      return proof;
-    });
+    // Get the current gas price
+    const gasPrice = await web3.eth.getGasPrice();
+    const gasLimit = 1000000;
 
-    // Mint tokens for the batch
-    await myNFTContract.methods.batchMintNFTs(batchRecipients, proofs).send({ from: '0xf5C2232A42B89Ff64cCE52BB6f5A0a2beB3F73f0', gas: '5000000' });
+    console.log(`Batch Mint Data: ${batchMintData}`);
+    console.log(`Nonce: ${nonce}, Gas Price: ${gasPrice}, Gas Limit: ${gasLimit}`);
 
-    console.log(`Batch ${i + 1} minted successfully.`);
+    // Create the transaction object
+    const batchMintTx = {
+      from: '0xf5C2232A42B89Ff64cCE52BB6f5A0a2beB3F73f0', // Include the from address
+      nonce: web3.utils.toHex(nonce),
+      gasPrice: web3.utils.toHex(gasPrice), // Provide the gas price
+      gas: web3.utils.toHex(gasLimit), // Provide the gas limit
+      to: '0xd9145CCE52D386f254917e481eB44e9943F39138', // Replace with the actual contract address
+      data: batchMintData,
+    };
+
+    // Sign the transaction with the provided private key
+    const signedBatchMintTx = await web3.eth.accounts.signTransaction(batchMintTx, privateKey);
+
+    // Send the signed transaction and get the transaction receipt
+    const receipt = await web3.eth.sendSignedTransaction(signedBatchMintTx.rawTransaction as string);
+    console.log(`Merkle batch minting completed successfully. Transaction hash: ${receipt.transactionHash}`);
+  } catch (error) {
+    console.error(`Failed to execute Merkle batch minting:`, error);
+    throw error;
   }
-
-  console.log('Merkle Tree-based batch minting completed.');
 }
 
+// Example recipients
 const recipients = [
   '0x087a9d913769E8355f6d25747012995Bc03b80aD',
   '0x8B8f8ffCC5EFbFF06f805D9908A8BC3918a53142',
@@ -59,10 +89,6 @@ const recipients = [
 ];
 const privateKey = '0f60d01fe41976c2a847cf929ec2dc1d1b8c40f6a044ae0dab48ddc2e36d6c42';
 
-(async () => {
-  try {
-    await merkleBatchMinting(recipients, privateKey);
-  } catch (error) {
-    console.error('An error occurred during the minting process:', error);
-  }
-})();
+offChainMerkleBatchMint(recipients, privateKey);
+
+export { offChainMerkleBatchMint };
