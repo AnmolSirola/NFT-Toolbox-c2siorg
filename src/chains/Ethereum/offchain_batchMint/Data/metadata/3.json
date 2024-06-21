@@ -1,5 +1,27 @@
 {
-  "name": "NFT #3",
-  "description": "This is NFT number 3",
-  "image": "ipfs://QmRNvLWJAaLu1KmQ4TUDxt7EXV479Mth4fGX7t4VhYgf8M"
+  "name": "Demo Collection - Ethereum #3",
+  "description": "This is a demo collection for NFT Toolbox in Ethereum",
+  "image": "//3.png",
+  "attributes": [
+    {
+      "trait_type": "background",
+      "value": "white"
+    },
+    {
+      "trait_type": "first character",
+      "value": "blue"
+    },
+    {
+      "trait_type": "second character",
+      "value": "green"
+    },
+    {
+      "trait_type": "third character",
+      "value": "red"
+    },
+    {
+      "trait_type": "fourth character",
+      "value": "red"
+    }
+  ]
 }

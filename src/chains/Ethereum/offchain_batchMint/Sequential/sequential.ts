@@ -1,3 +1,4 @@
+
 import Web3 from 'web3';
 import { AbiItem } from 'web3-utils';
 import axios from 'axios';
@@ -48,7 +49,7 @@ async function uploadToIPFS(tokenId: number, name: string, description: string, 
       }
     });
 
-    console.log(`Metadata uploaded to Pinata. IPFS hash: ${res.data.IpfsHash}`);
+    console.log(`Metadata uploaded Token ${tokenId} to Pinata. IPFS hash: ${res.data.IpfsHash}\n`);
     return `ipfs://${res.data.IpfsHash}`;
   } catch (error) {
     console.error(`Failed to upload to IPFS for token ${tokenId}:`, error instanceof Error ? error.message : String(error));
@@ -56,11 +57,10 @@ async function uploadToIPFS(tokenId: number, name: string, description: string, 
   }
 }
 
-// Function for off-chain batch minting
-async function offChain(recipients: string[], tokenIds: number[], privateKey: string) {
-  const batchSize = 100; // Set the batch size for minting
-  const numBatches = Math.ceil(recipients.length / batchSize);
-  console.log(`Starting off-chain batch minting for ${recipients.length} recipients...`);
+// Function for off-chain sequential batch minting
+async function offChainSequential(recipients: string[], tokenIds: number[], privateKey: string) {
+  const numNFTs = recipients.length;
+  console.log(`Starting off-chain sequential batch minting for ${numNFTs} NFTs...`);
 
   const dataDir = path.join(__dirname, '..', 'Data');
   const assetsDir = path.join(dataDir, 'assets');
@@ -70,70 +70,91 @@ async function offChain(recipients: string[], tokenIds: number[], privateKey: st
   console.log(`Assets directory: ${assetsDir}`);
   console.log(`Metadata directory: ${metadataDir}`);
 
-  let lastProcessedIndex = 0;
+  let lastMintedTokenId = 0;
 
   // Check if there's a saved state
   if (fs.existsSync(stateFile)) {
     const savedState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-    lastProcessedIndex = savedState.lastProcessedIndex;
-    console.log(`Resuming from index ${lastProcessedIndex}`);
+    lastMintedTokenId = savedState.lastMintedTokenId;
+    console.log(`Resuming from token ID ${lastMintedTokenId + 1}`);
   }
 
+  // Get the account address from the private key
+  const account = web3.eth.accounts.privateKeyToAccount(`0x${privateKey}`).address;
+
+  // Check the account balance
+  const balance = await web3.eth.getBalance(account);
+  console.log(`Account balance: ${web3.utils.fromWei(balance, 'ether')} ETH`);
+
+  const batchSize = 50;
+  const numBatches = Math.ceil(numNFTs / batchSize);
+
   // Iterate over each batch
-  for (let i = Math.floor(lastProcessedIndex / batchSize); i < numBatches; i++) {
-    const start = Math.max(i * batchSize, lastProcessedIndex);
-    const end = Math.min((i + 1) * batchSize, recipients.length);
-    const batchRecipients = recipients.slice(start, end);
-    const batchTokenIds = tokenIds.slice(start, end);
+  for (let batchIndex = 0; batchIndex < numBatches; batchIndex++) {
+    const startIndex = batchIndex * batchSize;
+    const endIndex = Math.min((batchIndex + 1) * batchSize, numNFTs);
+    const currentBatchRecipients = recipients.slice(startIndex, endIndex);
+    const currentBatchTokenIds = tokenIds.slice(startIndex, endIndex);
 
-    console.log(`Minting batch ${i + 1} of ${numBatches}...`);
+    console.log(`Processing batch ${batchIndex + 1} of ${numBatches}...`);
 
-    const batchUris: string[] = [];
-
-    // Upload metadata and images for each token in the batch
-    for (let j = 0; j < batchRecipients.length; j++) {
-      const tokenId = batchTokenIds[j];
-      const imagePath = path.join(assetsDir, `${tokenId}.png`);
-      
-      if (!fs.existsSync(imagePath)) {
-        console.error(`Image file not found: ${imagePath}`);
-        continue;
-      }
-
-      const uri = await uploadToIPFS(
-        tokenId,
-        `NFT #${tokenId}`,
-        `This is NFT number ${tokenId}`,
-        imagePath
-      );
-
-      if (uri) {
-        batchUris.push(uri);
-
-        // Save metadata locally
-        const metadata = {
-          name: `NFT #${tokenId}`,
-          description: `This is NFT number ${tokenId}`,
-          image: uri
-        };
+    // Prepare batch data in parallel
+    const batchData = await Promise.all(
+      currentBatchTokenIds.map(async (tokenId, index) => {
+        const recipient = currentBatchRecipients[index];
+        const imagePath = path.join(assetsDir, `${tokenId}.png`);
         const metadataPath = path.join(metadataDir, `${tokenId}.json`);
-        fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-        console.log(`Metadata saved locally: ${metadataPath}`);
-      } else {
-        console.error(`Failed to upload metadata for token ${tokenId}. Skipping this token.`);
-      }
-    }
 
-    if (batchUris.length === 0) {
-      console.error(`No valid URIs in this batch. Skipping minting for batch ${i + 1}.`);
+        // Check if the image file exists
+        if (!fs.existsSync(imagePath)) {
+          console.error(`Image file not found: ${imagePath}`);
+          return null;
+        }
+
+        // Check if the metadata file exists
+        if (!fs.existsSync(metadataPath)) {
+          console.error(`Metadata file not found: ${metadataPath}`);
+          return null;
+        }
+
+        // Read the metadata file
+        const metadataFile = fs.readFileSync(metadataPath, 'utf8');
+        const metadata = JSON.parse(metadataFile);
+
+        // Upload the image to IPFS
+        const uri = await uploadToIPFS(
+          tokenId,
+          metadata.name,
+          metadata.description,
+          imagePath
+        );
+
+        if (!uri) {
+          console.error(`Failed to upload metadata for token ${tokenId}. Skipping this token.`);
+          return null;
+        }
+
+        return { recipient, tokenId, uri };
+      })
+    );
+
+    // Filter out any null entries
+    const validBatchData = batchData.filter((data): data is { recipient: string; tokenId: number; uri: string } => data !== null);
+
+    if (validBatchData.length === 0) {
+      console.error(`No valid data in batch ${batchIndex + 1}. Skipping this batch.`);
       continue;
     }
 
+    const mintBatchRecipients = validBatchData.map((data) => data.recipient);
+    const mintBatchTokenIds = validBatchData.map((data) => data.tokenId);
+    const mintBatchUris = validBatchData.map((data) => data.uri);
+
     try {
-      const data = myNFTContract.methods.batchMint(batchRecipients, batchTokenIds, batchUris).encodeABI();
-      const nonce = await web3.eth.getTransactionCount('0xf5C2232A42B89Ff64cCE52BB6f5A0a2beB3F73f0');
+      const data = myNFTContract.methods.batchMint(mintBatchRecipients, mintBatchTokenIds, mintBatchUris).encodeABI();
+      const nonce = await web3.eth.getTransactionCount(account);
       const gasPrice = await web3.eth.getGasPrice();
-      const gasLimit = 10000000; // Adjust the gas limit to a lower value
+      const gasLimit = 500000; // Adjust the gas limit based on the actual requirements
 
       console.log(`Nonce: ${nonce}, Gas Price: ${gasPrice}, Gas Limit: ${gasLimit}`);
 
@@ -145,23 +166,23 @@ async function offChain(recipients: string[], tokenIds: number[], privateKey: st
         data: data,
       };
 
-      const signedTx = await web3.eth.accounts.signTransaction(txObject, privateKey);
+      const signedTx = await web3.eth.accounts.signTransaction(txObject, `0x${privateKey}`);
       const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction as string);
-      console.log(`Batch ${i + 1} minted successfully. Transaction hash: ${receipt.transactionHash}`);
+      console.log(`Batch ${batchIndex + 1} minted successfully. Transaction hash: ${receipt.transactionHash}`);
 
-      // Update the last processed index
-      lastProcessedIndex = end;
-      fs.writeFileSync(stateFile, JSON.stringify({ lastProcessedIndex }));
+      // Update the last minted token ID
+      lastMintedTokenId = mintBatchTokenIds[mintBatchTokenIds.length - 1];
+      fs.writeFileSync(stateFile, JSON.stringify({ lastMintedTokenId }));
 
     } catch (error) {
-      console.error(`Failed to mint batch ${i + 1}:`, error);
+      console.error(`Failed to mint batch ${batchIndex + 1}:`, error);
       // Save the current state before halting
-      fs.writeFileSync(stateFile, JSON.stringify({ lastProcessedIndex }));
+      fs.writeFileSync(stateFile, JSON.stringify({ lastMintedTokenId }));
       throw error;
     }
   }
 
-  console.log('Off-chain batch minting completed.');
+  console.log('Off-chain sequential batch minting completed.');
   // Only try to delete the state file if it exists
   if (fs.existsSync(stateFile)) {
     fs.unlinkSync(stateFile);
@@ -172,14 +193,10 @@ async function offChain(recipients: string[], tokenIds: number[], privateKey: st
 }
 
 // Example recipients and token IDs (replace with your actual data)
-const recipients = [
-  '0x087a9d913769E8355f6d25747012995Bc03b80aD',
-  '0x8B8f8ffCC5EFbFF06f805D9908A8BC3918a53142',
-  '0x187C675C52a3f606a1Aaf35Ae05C652503329Cd2',
-];
-const tokenIds = [1, 2, 3]; 
+const recipients = Array(100).fill('0x087a9d913769E8355f6d25747012995Bc03b80aD'); // Example recipient address
+const tokenIds = Array.from({ length: 100 }, (_, i) => i + 1); // Token IDs from 1 to 100
 const privateKey = '0f60d01fe41976c2a847cf929ec2dc1d1b8c40f6a044ae0dab48ddc2e36d6c42';
 
-offChain(recipients, tokenIds, privateKey).catch(console.error);
+offChainSequential(recipients, tokenIds, privateKey).catch(console.error);
 
-export { offChain };
+export { offChainSequential };

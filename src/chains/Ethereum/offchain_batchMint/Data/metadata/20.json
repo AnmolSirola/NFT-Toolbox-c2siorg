@@ -1,0 +1,27 @@
+{
+  "name": "Demo Collection - Ethereum #20",
+  "description": "This is a demo collection for NFT Toolbox in Ethereum",
+  "image": "//20.png",
+  "attributes": [
+    {
+      "trait_type": "background",
+      "value": "light grey"
+    },
+    {
+      "trait_type": "first character",
+      "value": "red"
+    },
+    {
+      "trait_type": "second character",
+      "value": "blue"
+    },
+    {
+      "trait_type": "third character",
+      "value": "red"
+    },
+    {
+      "trait_type": "fourth character",
+      "value": "red"
+    }
+  ]
+}

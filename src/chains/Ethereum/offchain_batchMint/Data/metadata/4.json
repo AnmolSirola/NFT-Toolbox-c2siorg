@@ -5,19 +5,19 @@
   "attributes": [
     {
       "trait_type": "background",
-      "value": "grey"
+      "value": "white"
     },
     {
       "trait_type": "first character",
-      "value": "blue"
+      "value": "green"
     },
     {
       "trait_type": "second character",
-      "value": "red"
+      "value": "blue"
     },
     {
       "trait_type": "third character",
-      "value": "blue"
+      "value": "green"
     },
     {
       "trait_type": "fourth character",
