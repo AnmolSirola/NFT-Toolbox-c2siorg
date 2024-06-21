@@ -6,9 +6,9 @@ nftToolbox.initEthereumContract({
 	name: "DemoContract",
 	symbol: "DEMO",
 	dir: path.join(__dirname, "Contracts"),
-	standard: "ERC721",
+	standard: "ERC1151",
 	connection: JSON.parse(
-		readFileSync(path.join(__dirname, "connection.json")).toString()
+		readFileSync(path.join(__dirname, "..","..","..","connection.json")).toString()
 	),
 });
 
