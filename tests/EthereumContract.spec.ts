@@ -7,7 +7,7 @@ import os from "os";
 
 const expect = chai.expect;
 
-const TEST_CONT_NAME = "DemoNFT";
+const TEST_CONT_NAME = "Ethereum DemoNFT";
 const TEST_CONT_PATH = path.join(os.tmpdir(), "Contracts");
 
 const test_specs = JSON.parse(
@@ -26,7 +26,7 @@ const testCont = new Contract({
   },
 });
 
-describe("Test suite for Contract Class", () => {
+describe("Test suite for Ethereum Contract Class", () => {
   afterEach(() => {
     // Remove the TEST_CONT_PATH directory and its contents
     if (fs.existsSync(TEST_CONT_PATH)) {
@@ -34,7 +34,7 @@ describe("Test suite for Contract Class", () => {
     }
   });
 
-  it("Checking Draft Method", () => {
+  it("Checking Ethereum Draft Method", () => {
     console.log(`TEST_CONT_PATH: ${TEST_CONT_PATH}`);
     console.log(`TEST_CONT_NAME: ${TEST_CONT_NAME}`);
 

@@ -7,7 +7,7 @@ nftToolbox.initEthereumCollection({
 	description: "This is a demo collection for NFT Toolbox in Ethereum",
 });
 
-nftToolbox.generateNFTs({
+nftToolbox.generateEthereumNFTs({
 	dir: path.join(__dirname, "layers"),
 	size: 100,
 	layersOrder: [

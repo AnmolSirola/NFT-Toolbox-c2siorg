@@ -3,12 +3,14 @@ import chai from "chai";
 import sinon from "sinon";
 import mock from "mock-fs";
 import path from "path";
+import fs from "fs";
 import canvas from "canvas";
-import { Collection } from "../src/chains/Ethereum/contracts/EthereumCollection";
+import { Collection } from "../src/chains/Solana/contracts/SolanaCollection";
+import { PublicKey, Connection, Keypair } from "@solana/web3.js";
 
 const expect = chai.expect;
 
-const TEST_COL_NAME = "Test Ethereum Collection";
+const TEST_COL_NAME = "Test Solana Collection";
 const TEST_COL_PATH = path.join(process.cwd(), "fake_dir");
 const TEST_SCHEMA_SIZE = 5;
 const TEST_IMG = path.join(__dirname, "test.png");
@@ -47,23 +49,38 @@ const testSchema = {
   rarityDelimiter: "#",
   rarityDefault: "1",
   shuffleIndexes: true,
+  connection: new Connection("http://localhost:8899", "confirmed"), 
+  payer: Keypair.generate(), 
 };
+
+const programId = new PublicKey("3Fp6nVU22pfyv3jbLLoDHrj3yaNdKDWoe2qtCtbn38Bf");
+const account = new PublicKey("3Fp6nVU22pfyv3jbLLoDHrj3yaNdKDWoe2qtCtbn38Bf");
 
 const testColObj = new Collection({
   name: TEST_COL_NAME,
   dir: TEST_COL_PATH,
-  description: "This is a Test Collection",
+  description: "This is a Solana Test Collection",
+  programId,
+  account,
 });
 
-describe("Test suite for Ethereum Schema Setter", () => {
+describe("Test suite for Solana Collection", () => {
   beforeEach(() => {
     mock(TEST_FAKE_DIR_STRUCTURE);
   });
   afterEach(() => {
     mock.restore();
+    sinon.restore();
   });
 
-  it("Checking File System calls", () => {
+  it("Checking Collection Initialization", () => {
+    expect(testColObj.name).to.equal(TEST_COL_NAME);
+    expect(testColObj.dir).to.equal(TEST_COL_PATH);
+    expect(testColObj.programId).to.deep.equal(programId);
+    expect(testColObj.account).to.deep.equal(account);
+  });
+
+  it("Checking Schema Setter", () => {
     const spyReadDirElements = sinon.spy(testColObj, "readDirElements");
     
     testColObj.setSchema(testSchema);
@@ -72,34 +89,19 @@ describe("Test suite for Ethereum Schema Setter", () => {
       const dir = path.join(__dirname, '..', 'src', 'layers', layerObj.name);
       expect(spyReadDirElements.calledWith(dir)).to.be.true;
     });
-  });
-  
-  it("Checking updated Ethereum Schema attribute", () => {
-    testColObj.setSchema(testSchema);
+
     expect(testColObj.schema).to.exist;
-  });
-  
-  it("Checking updated Ethereum Layers attribute", () => {
-    testColObj.setSchema(testSchema);
     expect(testColObj.layers)
       .to.be.an("array")
       .that.has.lengthOf(
         Object.keys(TEST_FAKE_DIR_STRUCTURE.src.layers).length
       );
   });
-});
-
-describe("Test suite for Generate Ethereum Method", () => {
-  beforeEach(() => {
-    mock(TEST_FAKE_DIR_STRUCTURE);
-    testColObj.setSchema(testSchema);
-  });
-  afterEach(() => {
-    mock.restore();
-  });
   
-  it("Checking File System Calls", async function () {
+  it("Checking Generate Method", async function () {
     this.timeout(10000);
+    testColObj.setSchema(testSchema);
+
     const mockCol = sinon.mock(testColObj);
     const expInitializeDir = mockCol.expects("initializeDir");
     const expSaveImage = mockCol.expects("saveImage");
@@ -109,7 +111,6 @@ describe("Test suite for Generate Ethereum Method", () => {
     expSaveMetadata.exactly(TEST_SCHEMA_SIZE);
 
     const fakeLoadImage = sinon.fake.returns(
-      // eslint-disable-next-line no-async-promise-executor
       new Promise<canvas.Image>(async (resolve) => {
         const image = await canvas.loadImage(TEST_IMG);
         resolve(image);
@@ -120,5 +121,27 @@ describe("Test suite for Generate Ethereum Method", () => {
     await testColObj.generate();
 
     mockCol.verify();
+  });
+
+  it("Checking updateMetadataWithCID Method", () => {
+    const fakeMetadataDir = {
+      "1.json": '{"name": "Test NFT 1", "image": "old_image_url"}',
+      "2.json": '{"name": "Test NFT 2", "image": "old_image_url"}',
+    };
+
+    mock({
+      [path.join(TEST_COL_PATH, "metadata")]: fakeMetadataDir,
+    });
+
+    testColObj.setBaseURL("https://example.com");
+    testColObj.setAssetsDirCID("QmTest123");
+
+    testColObj.updateMetadataWithCID();
+
+    Object.keys(fakeMetadataDir).forEach((fileName) => {
+      const filePath = path.join(TEST_COL_PATH, "metadata", fileName);
+      const updatedContent = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      expect(updatedContent.image).to.equal(`https://example.com/QmTest123/${path.parse(fileName).name}.png`);
+    });
   });
 });

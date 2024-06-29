@@ -4,8 +4,10 @@ import sinon from "sinon";
 import mock from "mock-fs";
 import path from "path";
 import { Arweave } from "../src/classes/Arweave";
-import { Collection } from "../src/chains/Ethereum/contracts/EthereumCollection";
+import { Collection as EthereumCollection } from "../src/chains/Ethereum/contracts/EthereumCollection";
+import { Collection as SolanaCollection } from "../src/chains/Solana/contracts/SolanaCollection";
 import { readFileSync } from "fs";
+import { PublicKey } from "@solana/web3.js";
 
 const expect = chai.expect;
 
@@ -36,10 +38,18 @@ const TEST_API_RESPONSE = {
    id: "randomCID",
 };
 
-const testCol = new Collection({
+const testEthereumCol = new EthereumCollection({
    name: TEST_COL_NAME,
    dir: TEST_COL_PATH,
-   description: "This is a demo collection for NFT Toolbox",
+   description: "This is a demo Ethereum collection for NFT Toolbox",
+});
+
+const testSolanaCol = new SolanaCollection({
+   name: TEST_COL_NAME,
+   dir: TEST_COL_PATH,
+   description: "This is a demo Solana collection for NFT Toolbox",
+   programId: new PublicKey("3Fp6nVU22pfyv3jbLLoDHrj3yaNdKDWoe2qtCtbn38Bf"),
+   account: new PublicKey("3Fp6nVU22pfyv3jbLLoDHrj3yaNdKDWoe2qtCtbn38Bf"),
 });
 
 const testArweaveObj = new Arweave(TEST_ARWEAVE_CURRENCY, TEST_ARWEAVE_WALLET);
@@ -115,22 +125,33 @@ describe("Test suite for Upload with Irys SDK", () => {
 });
 
 describe("Test suite for Upload Method", () => {
+   let uploadDirStub: sinon.SinonStub;
+
    beforeEach(() => {
    	mock(TEST_FAKE_DIR_STRUCTURE, {
    		createCwd: true,
    		createTmp: true,
    	});
+      uploadDirStub = sinon.stub(testArweaveObj, "uploadDirToService").resolves(TEST_API_RESPONSE.id);
    });
    afterEach(() => {
    	mock.restore();
+      sinon.restore();
    });
-   it("Checking Internal UploadDirToService Calls", async function () {
-   	const fake = sinon.fake.resolves(TEST_API_RESPONSE.id);
-   	sinon.replace(testArweaveObj, "uploadDirToService", fake);
+   it("Checking Internal UploadDirToService Calls for Ethereum", async function () {
+   	await testArweaveObj.uploadEthereumCollection(testEthereumCol);
 
-   	await testArweaveObj.uploadCollection(testCol);
+   	expect(uploadDirStub.calledTwice).to.be.true;
+      expect(uploadDirStub.firstCall.args[0]).to.include("assets");
+      expect(uploadDirStub.secondCall.args[0]).to.include("metadata");
+   });
+   it("Checking Internal UploadDirToService Calls for Solana", async function () {
+      uploadDirStub.resetHistory();
+      await testArweaveObj.uploadSolanaCollection(testSolanaCol);
 
-   	expect(fake.calledTwice).to.be.true;
+      expect(uploadDirStub.calledTwice).to.be.true;
+      expect(uploadDirStub.firstCall.args[0]).to.include("assets");
+      expect(uploadDirStub.secondCall.args[0]).to.include("metadata");
    });
    it("Checking Internal UploadFileToService and UploadJSONToService Calls", async function () {
    	const fakeFile = sinon.fake.resolves(TEST_API_RESPONSE.id);

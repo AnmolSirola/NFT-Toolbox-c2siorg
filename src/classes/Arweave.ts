@@ -106,4 +106,5 @@ export class Arweave extends FileStorage {
 			throw new Error("Failed to upload JSON");
 		}
 	}
+	
 }
