@@ -7,7 +7,6 @@ import path from 'path';
 import { MerkleTree } from 'merkletreejs';
 import keccak256 from 'keccak256';
 import MyNFT from "./tree.json";
-import BigNumber from 'bignumber.js';
 
 // Web3 instance with the Sepolia network provider URL
 const web3 = new Web3('https://sepolia.infura.io/v3/b1174536ea344728a2d2eab8aa405f12');
@@ -55,27 +54,24 @@ async function uploadToIPFS(tokenId: number, name: string, description: string, 
     return `ipfs://${res.data.IpfsHash}`;
   } catch (error) {
     console.error(`Failed to upload to IPFS for token ${tokenId}:`, error instanceof Error ? error.message : String(error));
-    throw error;
+    return null;
   }
 }
 
 // Function to create a Merkle tree and generate proofs
 function createMerkleTree(recipients: string[]) {
-  const leaves = recipients.map((recipient) =>
-    keccak256(web3.utils.soliditySha3(recipient))
-  );
+  const leaves = recipients.map((recipient) => keccak256(recipient));
   const tree = new MerkleTree(leaves, keccak256, { sort: true });
   const root = tree.getHexRoot();
-  const proofs = recipients.map((recipient) =>
-    tree.getHexProof(keccak256(web3.utils.soliditySha3(recipient))).map((p: string) => p.toString())
-  );
+  const proofs = recipients.map((recipient) => tree.getHexProof(keccak256(recipient)));
   return { root, proofs };
 }
 
-// Function for off-chain batch minting using Merkle tree
-async function offChainMerkleBatchMint(recipients: string[], privateKey: string, metadataDir: string, batchSize: number) {
+// Function for off-chain Merkle tree-based batch minting
+async function offChainMerkleBatchMint(recipients: string[], privateKey: string, metadataDir: string) {
   console.log(`Starting off-chain Merkle batch minting for ${recipients.length} recipients...`);
 
+  const batchSize = 100; // Set the batch size for minting
   const numBatches = Math.ceil(recipients.length / batchSize);
 
   const assetsDir = path.join(metadataDir, 'assets');
@@ -86,7 +82,7 @@ async function offChainMerkleBatchMint(recipients: string[], privateKey: string,
 
   let lastProcessedIndex = 0;
 
-  // Checking if there's a saved state
+  // Check if there's a saved state
   if (fs.existsSync(stateFile)) {
     const savedState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
     lastProcessedIndex = savedState.lastProcessedIndex;
@@ -109,7 +105,7 @@ async function offChainMerkleBatchMint(recipients: string[], privateKey: string,
     const signedSetMerkleRootTx = await web3.eth.accounts.signTransaction(setMerkleRootTx, privateKey);
     await web3.eth.sendSignedTransaction(signedSetMerkleRootTx.rawTransaction as string);
 
-    // Iterating over each batch
+    // Iterate over each batch
     for (let i = Math.floor(lastProcessedIndex / batchSize); i < numBatches; i++) {
       const start = Math.max(i * batchSize, lastProcessedIndex);
       const end = Math.min((i + 1) * batchSize, recipients.length);
@@ -120,14 +116,14 @@ async function offChainMerkleBatchMint(recipients: string[], privateKey: string,
 
       const batchUris: string[] = [];
 
-      // Uploading metadata and images for each token in the batch
+      // Upload metadata and images for each token in the batch
       for (let j = 0; j < batchRecipients.length; j++) {
         const tokenId = start + j + 1;
         const imagePath = path.join(assetsDir, `${tokenId}.png`);
 
         if (!fs.existsSync(imagePath)) {
           console.error(`Image file not found: ${imagePath}`);
-          throw new Error(`Image file not found: ${imagePath}`);
+          continue;
         }
 
         const uri = await uploadToIPFS(
@@ -137,17 +133,26 @@ async function offChainMerkleBatchMint(recipients: string[], privateKey: string,
           imagePath
         );
 
-        batchUris.push(uri);
+        if (uri) {
+          batchUris.push(uri);
 
-        // Save metadata locally
-        const metadata = {
-          name: `NFT #${tokenId}`,
-          description: `This is NFT number ${tokenId}`,
-          image: uri
-        };
-        const metadataPath = path.join(metadataDir, `${tokenId}.json`);
-        fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-        console.log(`Metadata saved locally: ${metadataPath}`);
+          // Save metadata locally
+          const metadata = {
+            name: `NFT #${tokenId}`,
+            description: `This is NFT number ${tokenId}`,
+            image: uri
+          };
+          const metadataPath = path.join(metadataDir, `${tokenId}.json`);
+          fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+          console.log(`Metadata saved locally: ${metadataPath}`);
+        } else {
+          console.error(`Failed to upload metadata for token ${tokenId}. Skipping this token.`);
+        }
+      }
+
+      if (batchUris.length === 0) {
+        console.error(`No valid URIs in this batch. Skipping minting for batch ${i + 1}.`);
+        continue;
       }
 
       // Simulating the encoding of ABI data for batchMintNFTs
@@ -156,21 +161,12 @@ async function offChainMerkleBatchMint(recipients: string[], privateKey: string,
       // Getting the current nonce for the sender's address
       const nonce = await web3.eth.getTransactionCount(web3.eth.accounts.privateKeyToAccount(privateKey).address);
 
-      // Set a higher gas limit and gas price
-      const gasLimit = 5000000;
-      const gasPrice = web3.utils.toWei('20', 'gwei');
+      // Getting the current gas price
+      const gasPrice = await web3.eth.getGasPrice();
+      const gasLimit = 3000000; // Increased gas limit for batch minting
 
       console.log(`Batch Mint Data: ${batchMintData}`);
       console.log(`Nonce: ${nonce}, Gas Price: ${gasPrice}, Gas Limit: ${gasLimit}`);
-
-      // Check if the account has enough balance
-      const balance = await web3.eth.getBalance(web3.eth.accounts.privateKeyToAccount(privateKey).address);
-      const gasCost = new BigNumber(gasLimit).multipliedBy(new BigNumber(gasPrice));
-
-      if (new BigNumber(balance).isLessThan(gasCost)) {
-        console.error(`Insufficient funds. Required: ${web3.utils.fromWei(web3.utils.toBN(gasCost.toString()), 'ether')} ETH, Available: ${web3.utils.fromWei(web3.utils.toBN(balance), 'ether')} ETH`);
-        throw new Error('Insufficient funds');
-      }
 
       const batchMintTx = {
         from: web3.eth.accounts.privateKeyToAccount(privateKey).address,
@@ -194,7 +190,7 @@ async function offChainMerkleBatchMint(recipients: string[], privateKey: string,
     }
 
     console.log('Off-chain Merkle batch minting completed.');
-    // We will only try to delete the state file if it exists
+    // Only try to delete the state file if it exists
     if (fs.existsSync(stateFile)) {
       fs.unlinkSync(stateFile);
       console.log('Minting state file deleted.');
@@ -213,9 +209,8 @@ const recipients = [
   '0x187C675C52a3f606a1Aaf35Ae05C652503329Cd2',
 ];
 const privateKey = '0x0f60d01fe41976c2a847cf929ec2dc1d1b8c40f6a044ae0dab48ddc2e36d6c42';
-const metadataDir = path.join(__dirname, '..', 'Data');
-const batchSize = 100;
+const metadataDir = path.join(__dirname, '..', 'Data'); // Directory containing your metadata and assets
 
-offChainMerkleBatchMint(recipients, privateKey, metadataDir, batchSize);
+offChainMerkleBatchMint(recipients, privateKey, metadataDir);
 
 export { offChainMerkleBatchMint };

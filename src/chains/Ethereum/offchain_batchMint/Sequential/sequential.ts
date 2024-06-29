@@ -1,4 +1,3 @@
-
 import Web3 from 'web3';
 import { AbiItem } from 'web3-utils';
 import axios from 'axios';
@@ -7,196 +6,168 @@ import fs from 'fs';
 import path from 'path';
 import MyNFT from "./sequential.json";
 
-// Web3 instance with the Sepolia network provider URL
+// Initializing Web3 connection to the Sepolia testnet using Infura
 const web3 = new Web3('https://sepolia.infura.io/v3/b1174536ea344728a2d2eab8aa405f12');
 
-// Contract instance using the MyNFT ABI and contract address
+// Initializing the NFT contract instance
 const myNFTContract = new web3.eth.Contract(
-  MyNFT as AbiItem[],
-  '0xd9145CCE52D386f254917e481eB44e9943F39138' // Replace with the actual contract address
+  MyNFT as AbiItem[], // ABI of the contract
+  '0xd9145CCE52D386f254917e481eB44e9943F39138' // Contract address
 );
 
-// Function to upload metadata and image to IPFS
-async function uploadToIPFS(tokenId: number, name: string, description: string, imagePath: string) {
+// Pinata API credentials f
+const PINATA_API_KEY = 'cab1fe2327f90513a199';
+const PINATA_SECRET_API_KEY = '0f477c4131a1ddc2dd3d35c47d33a95cbffbff10fcce0d27945fa2e3802de6a3';
+
+// Function to upload an image file to IPFS using Pinata
+async function uploadToIPFS(tokenId: number, imagePath: string) {
   try {
-    console.log(`Reading image file: ${imagePath}`);
-    const image = await fs.promises.readFile(imagePath);
-
-    console.log(`Uploading metadata for token ${tokenId} to IPFS...`);
-
-    const pinataApiKey = 'cab1fe2327f90513a199';
-    const pinataSecretApiKey = '0f477c4131a1ddc2dd3d35c47d33a95cbffbff10fcce0d27945fa2e3802de6a3';
-
+    // Prepare the form data for the file upload
     const formData = new FormData();
     formData.append('file', fs.createReadStream(imagePath), path.basename(imagePath));
+    formData.append('pinataMetadata', JSON.stringify({ name: `${tokenId}.png` }));
+    formData.append('pinataOptions', JSON.stringify({ cidVersion: 0 }));
 
-    const pinataMetadata = JSON.stringify({
-      name: `${name}.png`,
-    });
-    formData.append('pinataMetadata', pinataMetadata);
-
-    const pinataOptions = JSON.stringify({
-      cidVersion: 0,
-    });
-    formData.append('pinataOptions', pinataOptions);
-
+    // Make the API request to upload the file
     const res = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", formData, {
       maxBodyLength: Infinity,
       headers: {
         'Content-Type': `multipart/form-data; boundary=${formData.getBoundary()}`,
-        pinata_api_key: pinataApiKey,
-        pinata_secret_api_key: pinataSecretApiKey
+        pinata_api_key: PINATA_API_KEY,
+        pinata_secret_api_key: PINATA_SECRET_API_KEY
       }
     });
 
-    console.log(`Metadata uploaded Token ${tokenId} to Pinata. IPFS hash: ${res.data.IpfsHash}\n`);
+    // Return the IPFS URL of the uploaded file
     return `ipfs://${res.data.IpfsHash}`;
   } catch (error) {
-    console.error(`Failed to upload to IPFS for token ${tokenId}:`, error instanceof Error ? error.message : String(error));
+    // Log any errors that occur during the upload
+    console.error(`Failed to upload to IPFS for token ${tokenId}:`, error);
     return null;
   }
 }
 
-// Function for off-chain sequential batch minting
-async function offChainSequential(recipients: string[], tokenIds: number[], privateKey: string) {
-  const numNFTs = recipients.length;
-  console.log(`Starting off-chain sequential batch minting for ${numNFTs} NFTs...`);
+// Function to save the current state of the minting process
+function saveState(lastMintedTokenId: number) {
+  const stateFile = path.join(__dirname, 'minting_state.json');
+  fs.writeFileSync(stateFile, JSON.stringify({ lastMintedTokenId }));
+}
 
+// Function to get the optimized gas price for transactions
+async function getOptimizedGasPrice() {
+  const gasPrice = await web3.eth.getGasPrice();
+  return Math.floor(Number(gasPrice) * 1.1); // 10% higher than current gas price
+}
+
+// Main function for off-chain sequential batch minting
+async function offChainSequential(recipients: string[], tokenIds: number[], privateKey: string) {
+  console.log(`Starting off-chain sequential batch minting for ${tokenIds.length} NFTs...`);
+
+  // Define the directories for data and assets
   const dataDir = path.join(__dirname, '..', 'Data');
   const assetsDir = path.join(dataDir, 'assets');
-  const metadataDir = path.join(dataDir, 'metadata');
   const stateFile = path.join(__dirname, 'minting_state.json');
 
-  console.log(`Assets directory: ${assetsDir}`);
-  console.log(`Metadata directory: ${metadataDir}`);
+  // Load the last minted token ID from the state file
+  let lastMintedTokenId = fs.existsSync(stateFile) 
+    ? JSON.parse(fs.readFileSync(stateFile, 'utf8')).lastMintedTokenId 
+    : 0;
 
-  let lastMintedTokenId = 0;
+  console.log(`Resuming from token ID ${lastMintedTokenId + 1}`);
 
-  // Check if there's a saved state
-  if (fs.existsSync(stateFile)) {
-    const savedState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-    lastMintedTokenId = savedState.lastMintedTokenId;
-    console.log(`Resuming from token ID ${lastMintedTokenId + 1}`);
-  }
-
-  // Get the account address from the private key
+  // Retrieve the account address from the private key
   const account = web3.eth.accounts.privateKeyToAccount(`0x${privateKey}`).address;
-
-  // Check the account balance
   const balance = await web3.eth.getBalance(account);
   console.log(`Account balance: ${web3.utils.fromWei(balance, 'ether')} ETH`);
 
-  const batchSize = 50;
-  const numBatches = Math.ceil(numNFTs / batchSize);
+  // Define the batch size and concurrent uploads
+  const batchSize = 20;
+  const concurrentUploads = 5;
+  let totalGasUsed = 0;
 
-  // Iterate over each batch
-  for (let batchIndex = 0; batchIndex < numBatches; batchIndex++) {
-    const startIndex = batchIndex * batchSize;
-    const endIndex = Math.min((batchIndex + 1) * batchSize, numNFTs);
-    const currentBatchRecipients = recipients.slice(startIndex, endIndex);
-    const currentBatchTokenIds = tokenIds.slice(startIndex, endIndex);
+  // Loop through the token IDs in batches
+  for (let i = lastMintedTokenId; i < tokenIds.length;) {
+    const batchEnd = Math.min(i + batchSize, tokenIds.length);
+    const batchTokenIds = tokenIds.slice(i, batchEnd);
+    const batchRecipients = recipients.slice(i, batchEnd);
 
-    console.log(`Processing batch ${batchIndex + 1} of ${numBatches}...`);
+    console.log(`Preparing batch for tokens ${i + 1} to ${batchEnd}`);
 
-    // Prepare batch data in parallel
-    const batchData = await Promise.all(
-      currentBatchTokenIds.map(async (tokenId, index) => {
-        const recipient = currentBatchRecipients[index];
+    // Parallel IPFS uploads
+    const uploadPromises = [];
+    for (let j = 0; j < batchTokenIds.length; j += concurrentUploads) {
+      const uploadBatch = batchTokenIds.slice(j, j + concurrentUploads).map(async (tokenId) => {
         const imagePath = path.join(assetsDir, `${tokenId}.png`);
-        const metadataPath = path.join(metadataDir, `${tokenId}.json`);
-
-        // Check if the image file exists
         if (!fs.existsSync(imagePath)) {
           console.error(`Image file not found: ${imagePath}`);
           return null;
         }
+        return uploadToIPFS(tokenId, imagePath);
+      });
+      uploadPromises.push(...uploadBatch);
+    }
 
-        // Check if the metadata file exists
-        if (!fs.existsSync(metadataPath)) {
-          console.error(`Metadata file not found: ${metadataPath}`);
-          return null;
-        }
+    // Wait for all uploads to complete
+    const batchUris = await Promise.all(uploadPromises);
+    const validBatch = batchUris.every(uri => uri !== null);
 
-        // Read the metadata file
-        const metadataFile = fs.readFileSync(metadataPath, 'utf8');
-        const metadata = JSON.parse(metadataFile);
-
-        // Upload the image to IPFS
-        const uri = await uploadToIPFS(
-          tokenId,
-          metadata.name,
-          metadata.description,
-          imagePath
-        );
-
-        if (!uri) {
-          console.error(`Failed to upload metadata for token ${tokenId}. Skipping this token.`);
-          return null;
-        }
-
-        return { recipient, tokenId, uri };
-      })
-    );
-
-    // Filter out any null entries
-    const validBatchData = batchData.filter((data): data is { recipient: string; tokenId: number; uri: string } => data !== null);
-
-    if (validBatchData.length === 0) {
-      console.error(`No valid data in batch ${batchIndex + 1}. Skipping this batch.`);
+    // If any upload failed, retry the entire batch
+    if (!validBatch) {
+      console.error('Failed to upload all tokens in batch. Retrying failed uploads.');
       continue;
     }
 
-    const mintBatchRecipients = validBatchData.map((data) => data.recipient);
-    const mintBatchTokenIds = validBatchData.map((data) => data.tokenId);
-    const mintBatchUris = validBatchData.map((data) => data.uri);
-
     try {
-      const data = myNFTContract.methods.batchMint(mintBatchRecipients, mintBatchTokenIds, mintBatchUris).encodeABI();
+      // Get the optimized gas price
+      const gasPrice = await getOptimizedGasPrice();
+
+      // Encode the batch mint transaction data
+      const data = myNFTContract.methods.batchMint(batchRecipients, batchTokenIds, batchUris).encodeABI();
       const nonce = await web3.eth.getTransactionCount(account);
-      const gasPrice = await web3.eth.getGasPrice();
-      const gasLimit = 500000; // Adjust the gas limit based on the actual requirements
+      const gasLimit = await myNFTContract.methods.batchMint(batchRecipients, batchTokenIds, batchUris).estimateGas({from: account});
 
-      console.log(`Nonce: ${nonce}, Gas Price: ${gasPrice}, Gas Limit: ${gasLimit}`);
-
+      // Prepare the transaction object
       const txObject = {
         nonce: web3.utils.toHex(nonce),
         gasPrice: web3.utils.toHex(gasPrice),
-        gasLimit: web3.utils.toHex(gasLimit),
-        to: '0xd9145CCE52D386f254917e481eB44e9943F39138',
+        gasLimit: web3.utils.toHex(Math.floor(Number(gasLimit) * 1.2)), // 20% buffer
+        to: myNFTContract.options.address,
         data: data,
       };
 
+      // Sign and send the transaction
       const signedTx = await web3.eth.accounts.signTransaction(txObject, `0x${privateKey}`);
       const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction as string);
-      console.log(`Batch ${batchIndex + 1} minted successfully. Transaction hash: ${receipt.transactionHash}`);
+      
+      // Log the gas used and transaction details
+      const batchGasUsed = Number(receipt.gasUsed);
+      totalGasUsed += batchGasUsed;
+      
+      console.log(`Batch minted. Tokens ${i + 1} to ${batchEnd}`);
+      console.log(`Transaction hash: ${receipt.transactionHash}`);
+      console.log(`Gas used for this batch: ${batchGasUsed}`);
 
-      // Update the last minted token ID
-      lastMintedTokenId = mintBatchTokenIds[mintBatchTokenIds.length - 1];
-      fs.writeFileSync(stateFile, JSON.stringify({ lastMintedTokenId }));
-
+      // Save the state and move to the next batch
+      lastMintedTokenId = batchTokenIds[batchTokenIds.length - 1];
+      saveState(lastMintedTokenId);
+      i = batchEnd; // Move to the next batch
     } catch (error) {
-      console.error(`Failed to mint batch ${batchIndex + 1}:`, error);
-      // Save the current state before halting
-      fs.writeFileSync(stateFile, JSON.stringify({ lastMintedTokenId }));
-      throw error;
+      console.error(`Failed to mint batch. Last successful mint: Token ${lastMintedTokenId}`);
+      console.error('Error:', error);
     }
   }
 
-  console.log('Off-chain sequential batch minting completed.');
-  // Only try to delete the state file if it exists
-  if (fs.existsSync(stateFile)) {
-    fs.unlinkSync(stateFile);
-    console.log('Minting state file deleted.');
-  } else {
-    console.log('No minting state file to delete.');
-  }
+  console.log('Minting process completed.');
+  console.log(`Total gas used for all batches: ${totalGasUsed}`);
+  if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile); // Remove state file after completion
 }
 
-// Example recipients and token IDs (replace with your actual data)
-const recipients = Array(100).fill('0x087a9d913769E8355f6d25747012995Bc03b80aD'); // Example recipient address
-const tokenIds = Array.from({ length: 100 }, (_, i) => i + 1); // Token IDs from 1 to 100
+// Define the recipients and token IDs for minting
+const recipients = Array(100).fill('0x087a9d913769E8355f6d25747012995Bc03b80aD');
+const tokenIds = Array.from({ length: 100 }, (_, i) => i + 1);
 const privateKey = '0f60d01fe41976c2a847cf929ec2dc1d1b8c40f6a044ae0dab48ddc2e36d6c42';
 
+// Start the batch minting process
 offChainSequential(recipients, tokenIds, privateKey).catch(console.error);
 
 export { offChainSequential };

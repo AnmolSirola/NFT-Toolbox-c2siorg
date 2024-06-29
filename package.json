@@ -19,6 +19,7 @@
 	"homepage": "https://github.com/scorelab/NFT-Toolbox#readme",
 	"devDependencies": {
 		"@pinata/sdk": "^1.2.1",
+		"@types/bn.js": "^5.1.5",
 		"@types/chai": "^4.3.1",
 		"@types/chai-as-promised": "^7.1.5",
 		"@types/mime": "^3.0.1",
@@ -47,6 +48,7 @@
 		"arweave": "^1.15.1",
 		"axios": "^0.27.2",
 		"bignumber.js": "^9.1.0",
+		"bn.js": "^5.2.1",
 		"canvas": "^2.11.2",
 		"child-process": "^1.0.2",
 		"ethers": "^5.6.9",
