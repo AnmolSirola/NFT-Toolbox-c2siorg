@@ -79,7 +79,7 @@ export class Contract {
   }
 
   draft(options: DraftOptions): void {
-    // const contractCode = ""; // TODO: Implement contract code generation for Solana
+    // const contractCode = ""; //
     const contractCode = `
       // Simple Solana smart contract
       program {
@@ -141,79 +141,6 @@ export class Contract {
     this.print(contractCode);
     console.log(`Contract created : ${this.dir}`);
   }
-/* 
-   async deploy(): Promise<void> {
-     if (this.deployedInstance) {
-       console.log(`Contract already deployed at ${this.deployedInstance}`);
-       return;
-     }
-
-       const programAccount = new Keypair();
-       const transaction = new Transaction().add(
-       SystemProgram.createAccount({
-         fromPubkey: this.payer.publicKey,
-         newAccountPubkey: programAccount.publicKey,
-        lamports: await this.connection.getMinimumBalanceForRentExemption(
-          this.programData.length
-         ),
-         space: this.programData.length,
-        programId: new PublicKey(this.programId),
-       })
-     );
-*/
-/*
-      const instruction = new TransactionInstruction({
-       keys: [{ pubkey: programAccount.publicKey, isSigner: true, isWritable: true }],
-       programId: new PublicKey(this.programId),
-       data: this.programData,
-     });
-     transaction.add(instruction);
-
-       const signature = await sendAndConfirmTransaction(
-       this.connection,
-       transaction,
-       [this.payer, programAccount],
-       { commitment: "singleGossip", preflightCommitment: "singleGossip" }
-     );
-
-  //   this.deployedInstance = programAccount.publicKey.toBase58();
-     console.log(`Contract deployed at ${this.deployedInstance} with signature ${signature}`);
-  }
-
-   import * as web3 from '@solana/web3.js';
-
-  async function deploy(bytecode: Uint8Array): Promise<web3.PublicKey> {
-//   // Connect to the Solana network
-   const connection = new web3.Connection(web3.clusterApiUrl('devnet'));
-
-//   // Create a new account to hold the program
-  const programAccount = new web3.Account();
-
-//   // Calculate the required program space
-   const space = await connection.getMinimumBalanceForRentExemption(bytecode.length);
-
-//   // Create the program account
-   const transaction = new web3.Transaction().add(
-     web3.SystemProgram.createAccount({
-      fromPubkey: programAccount.publicKey,
-       newAccountPubkey: programAccount.publicKey,
-       lamports: space,
-       space: bytecode.length,
-       programId: web3.SystemProgram.programId,
-     })
-   );
-
-//   // Sign and send the transaction
-   const signature = await web3.sendAndConfirmTransaction(connection, transaction, [programAccount]);
-
-   // Load the program into the account
-   await connection.confirmTransaction(signature);
-   const programId = await web3.BpfLoader.load(connection, programAccount, bytecode);
-
-  return programId;
- }
-
- */
 
 // Function to deploy a Solana smart contract
 // This code creates a new Solana program account, loads the provided 
@@ -239,7 +166,7 @@ async deployContract(connection: Connection, payer: Keypair): Promise<PublicKey>
       newAccountPubkey: programId,
       lamports: await connection.getMinimumBalanceForRentExemption(programBytes.length),
       space: programBytes.length,
-      programId: new PublicKey('11111111111111111111111111111111'), // System program ID
+      programId: new PublicKey('11111111111111111111111111111111'), 
     })
   );
 
