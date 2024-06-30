@@ -11,8 +11,6 @@ import {
 } from "@solana/web3.js";
 import { Idl } from '@project-serum/anchor';
 
-let spl_token: any;
-
 const wasmFilePath = '../../../../native/target/wasm32-unknown-unknown/debug/native.wasm';
 
 type networks = "devnet" | "testnet" | "mainnet";
@@ -57,8 +55,6 @@ export class Contract {
   deployedInstance: string | undefined = undefined;
   rpc: string;
 
-  splTokenMint: PublicKey | undefined;
-
   constructor(attr: ContractAttributes) {
     this.dir = attr.dir;
     this.name = attr.name;
@@ -71,12 +67,6 @@ export class Contract {
     this.deployedInstance = attr.deployed?.address;
     this.rpc = attr.connection.rpc;
     this.idl = attr.connection.idl;
-  }
-
-  private static async initSplToken() {
-    if (!spl_token) {
-      spl_token = await import('@solana/spl-token');
-    }
   }
 
   print(contractCode: string): void {
@@ -92,9 +82,8 @@ export class Contract {
 
   draft(options: DraftOptions): void {
     const contractCode = `
-      // Simple Solana smart contract with SPL token support
+      // Simple Solana smart contract
       use anchor_lang::prelude::*;
-      use anchor_spl::token::{self, Token};
 
       declare_id!("${options.programId}");
 
@@ -113,21 +102,6 @@ export class Contract {
           counter.count += 1;
           Ok(())
         }
-
-        pub fn mint_token(ctx: Context<MintToken>, amount: u64) -> ProgramResult {
-          token::mint_to(
-            CpiContext::new(
-              ctx.accounts.token_program.to_account_info(),
-              token::MintTo {
-                mint: ctx.accounts.mint.to_account_info(),
-                to: ctx.accounts.token_account.to_account_info(),
-                authority: ctx.accounts.payer.to_account_info(),
-              },
-            ),
-            amount,
-          )?;
-          Ok(())
-        }
       }
 
       #[derive(Accounts)]
@@ -143,17 +117,6 @@ export class Contract {
       pub struct Increment<'info> {
         #[account(mut)]
         pub counter: Account<'info, Counter>,
-      }
-
-      #[derive(Accounts)]
-      pub struct MintToken<'info> {
-        #[account(mut)]
-        pub mint: Account<'info, token::Mint>,
-        #[account(mut)]
-        pub token_account: Account<'info, token::TokenAccount>,
-        #[account(mut)]
-        pub payer: Signer<'info>,
-        pub token_program: Program<'info, Token>,
       }
 
       #[account]
@@ -200,69 +163,7 @@ export class Contract {
     console.log(`Contract deployed with program ID: ${programId.toBase58()}`);
     this.deployedInstance = programId.toBase58();
 
-    // Create SPL token mint after deployment
-    await this.createSPLTokenMint(connection, payer);
-
     return programId;
-  }
-
-  async createSPLTokenMint(connection: Connection, payer: Keypair): Promise<void> {
-    await Contract.initSplToken();
-
-    const mintKeypair = Keypair.generate();
-    this.splTokenMint = mintKeypair.publicKey;
-
-    const lamports = await connection.getMinimumBalanceForRentExemption(spl_token.MINT_SIZE);
-
-    const transaction = new Transaction().add(
-      SystemProgram.createAccount({
-        fromPubkey: payer.publicKey,
-        newAccountPubkey: mintKeypair.publicKey,
-        space: spl_token.MINT_SIZE,
-        lamports,
-        programId: spl_token.TOKEN_PROGRAM_ID,
-      }),
-      spl_token.createInitializeMintInstruction(
-        mintKeypair.publicKey,
-        0,
-        payer.publicKey,
-        payer.publicKey
-      )
-    );
-
-    await sendAndConfirmTransaction(connection, transaction, [payer, mintKeypair]);
-    console.log(`SPL Token mint created: ${this.splTokenMint.toBase58()}`);
-  }
-
-  async mintSPLToken(connection: Connection, payer: Keypair, recipient: PublicKey, amount: number): Promise<void> {
-    await Contract.initSplToken();
-
-    if (!this.splTokenMint) {
-      throw new Error('SPL Token mint not created yet');
-    }
-
-    const associatedTokenAccount = await spl_token.getAssociatedTokenAddress(
-      this.splTokenMint,
-      recipient
-    );
-
-    const transaction = new Transaction().add(
-      spl_token.createAssociatedTokenAccountInstruction(
-        payer.publicKey,
-        associatedTokenAccount,
-        recipient,
-        this.splTokenMint
-      ),
-      spl_token.createMintToInstruction(
-        this.splTokenMint,
-        associatedTokenAccount,
-        payer.publicKey,
-        amount
-      )
-    );
-
-    await sendAndConfirmTransaction(connection, transaction, [payer]);
-    console.log(`Minted ${amount} tokens to ${recipient.toBase58()}`);
   }
 
   async write(method: string, args: any[]): Promise<string> {

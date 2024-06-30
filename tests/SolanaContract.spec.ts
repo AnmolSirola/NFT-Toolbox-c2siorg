@@ -63,27 +63,20 @@ describe("Test suite for Solana Contract Class", () => {
 
     const contractContent = fs.readFileSync(contractFilePath, 'utf8');
     expect(contractContent).to.include("use anchor_lang::prelude::*");
-    expect(contractContent).to.include("use anchor_spl::token::{self, Token}");
     expect(contractContent).to.include("pub struct Counter");
-    expect(contractContent).to.include("pub fn mint_token(ctx: Context<MintToken>, amount: u64) -> ProgramResult");
+    expect(contractContent).to.include("pub fn increment(ctx: Context<Increment>) -> ProgramResult");
   });
 
   it("Checking Deploy Solana Contract Method", async () => {
     const payerKeypair = Keypair.generate();
     const expectedProgramId = new PublicKey("3Fp6nVU22pfyv3jbLLoDHrj3yaNdKDWoe2qtCtbn38Bf");
     
-    const deployContractStub = sinon.stub(testCont, "deployContract").callsFake(async () => {
-      await testCont.createSPLTokenMint(testConnection, payerKeypair);
-      return expectedProgramId;
-    });
-
-    const createSPLTokenMintStub = sinon.stub(testCont, "createSPLTokenMint").resolves();
+    const deployContractStub = sinon.stub(testCont, "deployContract").resolves(expectedProgramId);
 
     try {
       const result = await testCont.deployContract(testConnection, payerKeypair);
       
       expect(deployContractStub.calledOnce, "deployContract should be called once").to.be.true;
-      expect(createSPLTokenMintStub.calledOnce, "createSPLTokenMint should be called once").to.be.true;
       expect(result.equals(expectedProgramId), "Returned programId should match expected").to.be.true;
     } catch (error) {
       console.error("Error in Deploy Solana Contract Method test:", error);
@@ -91,36 +84,30 @@ describe("Test suite for Solana Contract Class", () => {
     }
   });
 
-  it("Checking Create SPL Token Mint Method", async () => {
-    const createMintStub = sinon.stub(testCont, "createSPLTokenMint").resolves();
+  it("Checking Read Solana Contract Method", async () => {
+    const readStub = sinon.stub(testCont, "read").resolves({ count: 5 });
 
     try {
-      await testCont.createSPLTokenMint(testConnection, Keypair.generate());
-      expect(createMintStub.calledOnce, "createSPLTokenMint should be called once").to.be.true;
+      const result = await testCont.read("getCount", []);
+      
+      expect(readStub.calledOnce, "read should be called once").to.be.true;
+      expect(result).to.deep.equal({ count: 5 }, "Read result should match expected");
     } catch (error) {
-      console.error("Error in Create SPL Token Mint Method test:", error);
+      console.error("Error in Read Solana Contract Method test:", error);
       throw error;
     }
   });
 
-  it("Checking Mint SPL Token Method", async () => {
-    const recipientKeypair = Keypair.generate();
-    const amount = 1;
-
-    const mintStub = sinon.stub(testCont, "mintSPLToken").resolves();
+  it("Checking Write Solana Contract Method", async () => {
+    const writeStub = sinon.stub(testCont, "write").resolves("fakeTxSignature");
 
     try {
-      await testCont.mintSPLToken(testConnection, Keypair.generate(), recipientKeypair.publicKey, amount);
+      const result = await testCont.write("increment", []);
       
-      expect(mintStub.calledOnce, "mintSPLToken should be called once").to.be.true;
-      expect(mintStub.calledWith(
-        testConnection,
-        sinon.match.any,
-        recipientKeypair.publicKey,
-        amount
-      ), "mintSPLToken should be called with correct arguments").to.be.true;
+      expect(writeStub.calledOnce, "write should be called once").to.be.true;
+      expect(result).to.equal("fakeTxSignature", "Write result should be a transaction signature");
     } catch (error) {
-      console.error("Error in Mint SPL Token Method test:", error);
+      console.error("Error in Write Solana Contract Method test:", error);
       throw error;
     }
   });

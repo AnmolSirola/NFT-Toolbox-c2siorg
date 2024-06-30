@@ -6,12 +6,7 @@ import {
   Keypair,
   Connection,
   PublicKey,
-  sendAndConfirmTransaction,
-  Transaction,
-  SystemProgram,
 } from '@solana/web3.js';
-
-let spl_token: any;
 
 const DNA_DELIMITER = '+';
 
@@ -85,8 +80,6 @@ export class Collection {
   programId: PublicKey;
   account: PublicKey;
 
-  splTokenMint: PublicKey | undefined;
-
   baseURL = '';
   assetsDirCID = '';
   metadataDirCID = '';
@@ -101,12 +94,6 @@ export class Collection {
     this.dir = attributes.dir;
     this.programId = attributes.programId;
     this.account = attributes.account;
-  }
-
-  private static async initSplToken() {
-    if (!spl_token) {
-      spl_token = await import('@solana/spl-token');
-    }
   }
 
   initializeDir() {
@@ -227,63 +214,6 @@ export class Collection {
 
     this.schema = schema;
     this.layers = layers;
-  }
-
-  async createSPLTokenMint(connection: Connection, payer: Keypair): Promise<void> {
-    await Collection.initSplToken();
-
-    const mintKeypair = Keypair.generate();
-    this.splTokenMint = mintKeypair.publicKey;
-
-    const lamports = await connection.getMinimumBalanceForRentExemption(spl_token.MINT_SIZE);
-
-    const transaction = new Transaction().add(
-      SystemProgram.createAccount({
-        fromPubkey: payer.publicKey,
-        newAccountPubkey: mintKeypair.publicKey,
-        space: spl_token.MINT_SIZE,
-        lamports,
-        programId: spl_token.TOKEN_PROGRAM_ID,
-      }),
-      spl_token.createInitializeMintInstruction(
-        mintKeypair.publicKey,
-        0,
-        payer.publicKey,
-        payer.publicKey
-      )
-    );
-
-    await sendAndConfirmTransaction(connection, transaction, [payer, mintKeypair]);
-  }
-
-  async mintSPLToken(connection: Connection, payer: Keypair, recipient: PublicKey): Promise<void> {
-    await Collection.initSplToken();
-
-    if (!this.splTokenMint) {
-      throw new Error('SPL Token mint not created yet');
-    }
-
-    const associatedTokenAccount = await spl_token.getAssociatedTokenAddress(
-      this.splTokenMint,
-      recipient
-    );
-
-    const transaction = new Transaction().add(
-      spl_token.createAssociatedTokenAccountInstruction(
-        payer.publicKey,
-        associatedTokenAccount,
-        recipient,
-        this.splTokenMint
-      ),
-      spl_token.createMintToInstruction(
-        this.splTokenMint,
-        associatedTokenAccount,
-        payer.publicKey,
-        1
-      )
-    );
-
-    await sendAndConfirmTransaction(connection, transaction, [payer]);
   }
 
   async generate() {

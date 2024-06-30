@@ -1,12 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { nftToolbox } from '../../../index';
-import { Keypair, PublicKey } from '@solana/web3.js';
+import { Keypair } from '@solana/web3.js';
 
-// Read the payer keypair from a file or generate a new one
 const payerKeypair = Keypair.generate();
-
-// Read the program data from a file or provide it directly
 const programData = Buffer.from('3Fp6nVU22pfyv3jbLLoDHrj3yaNdKDWoe2qtCtbn38Bf', 'hex');
 
 nftToolbox.initSolanaContract({

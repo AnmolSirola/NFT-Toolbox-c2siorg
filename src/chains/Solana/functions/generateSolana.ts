@@ -3,7 +3,7 @@ import { nftToolbox } from "../../../index";
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 
 // Create a new connection to the Solana cluster
-const connection = new Connection('https://api.devnet.solana.com', 'singleGossip');
+const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
 
 // Create a new Keypair object for the payer
 const payer = Keypair.generate();
@@ -13,8 +13,8 @@ nftToolbox.initSolanaCollection({
   name: 'Demo Collection - Solana',
   dir: path.join(__dirname, "Demo Collection - Solana"),
   description: "This is a demo collection for NFT Toolbox in Solana",
-  programId: new PublicKey('3Fp6nVU22pfyv3jbLLoDHrj3yaNdKDWoe2qtCtbn38Bf'),
-  account: new PublicKey('3Fp6nVU22pfyv3jbLLoDHrj3yaNdKDWoe2qtCtbn38Bf'),
+  programId: new PublicKey('11111111111111111111111111111111'), 
+  account: payer.publicKey, 
 });
 
 // Generate Solana NFTs

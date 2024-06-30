@@ -23,7 +23,6 @@ async function deployContract() {
             programData: programData,
         });
         console.log(`Contract deployed successfully. Program ID: ${programId.toBase58()}`);
-        console.log("SPL Token mint created.");
     } catch (error) {
         console.error("Error deploying contract:", error);
     }

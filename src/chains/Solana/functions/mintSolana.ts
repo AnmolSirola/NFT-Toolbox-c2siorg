@@ -1,7 +1,6 @@
 import path from "path";
 import fs from "fs";
 import { nftToolbox } from "../../../index";
-import { PublicKey, Keypair } from "@solana/web3.js";
 
 nftToolbox.initSolanaContract({
   name: "DemoContract",
@@ -17,22 +16,11 @@ nftToolbox.initSolanaContract({
   },
 });
 
-nftToolbox.initSolanaCollection({
-  name: "Demo Collection - Solana",
-  dir: path.join(__dirname, "Demo Collection - Solana"),
-  description: "This is a demo collection for NFT Toolbox",
-  programId: new PublicKey("3Fp6nVU22pfyv3jbLLoDHrj3yaNdKDWoe2qtCtbn38Bf"),
-  account: new PublicKey("3Fp6nVU22pfyv3jbLLoDHrj3yaNdKDWoe2qtCtbn38Bf"),
-});
-
 const demoMintNFT = async () => {
-  const recipientPublicKey = new PublicKey("3Fp6nVU22pfyv3jbLLoDHrj3yaNdKDWoe2qtCtbn38Bf");
-  const amountToMint = 1; // wecan change this to mint multiple tokens
-
-  console.log("Minting New Token");
+  console.log("Minting new NFT...");
   try {
-    await nftToolbox.mintSolanaNFT(recipientPublicKey, amountToMint);
-    console.log(`${amountToMint} NFT(s) minted successfully to ${recipientPublicKey.toBase58()}!`);
+    const signature = await nftToolbox.writeSolanaContract("mintNFT", []);
+    console.log(`NFT minted successfully with transaction signature: ${signature}`);
   } catch (error) {
     console.error("Error minting NFT:", error);
   }

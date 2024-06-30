@@ -3,6 +3,7 @@ import chai from "chai";
 import sinon from "sinon";
 import mock from "mock-fs";
 import path from "path";
+import fs from "fs";
 import canvas from "canvas";
 import { Collection } from "../src/chains/Solana/contracts/SolanaCollection";
 import { PublicKey, Connection, Keypair } from "@solana/web3.js";
@@ -52,8 +53,8 @@ const testSchema = {
   payer: Keypair.generate(), // Mock payer
 };
 
-const programId = new PublicKey("GaTJYGhopJDKYgWtjoaz2Gyc2sfRmW9v5haqppdtVxx5");
-const account = new PublicKey("GaTJYGhopJDKYgWtjoaz2Gyc2sfRmW9v5haqppdtVxx5");
+const programId = new PublicKey("11111111111111111111111111111111");
+const account = new PublicKey("22222222222222222222222222222222");
 
 const testColObj = new Collection({
   name: TEST_COL_NAME,
@@ -63,15 +64,23 @@ const testColObj = new Collection({
   account,
 });
 
-describe("Test suite for Solana Schema Setter", () => {
+describe("Test suite for Solana Collection", () => {
   beforeEach(() => {
     mock(TEST_FAKE_DIR_STRUCTURE);
   });
   afterEach(() => {
     mock.restore();
+    sinon.restore();
   });
 
-  it("Checking File System calls", () => {
+  it("Checking Collection Initialization", () => {
+    expect(testColObj.name).to.equal(TEST_COL_NAME);
+    expect(testColObj.dir).to.equal(TEST_COL_PATH);
+    expect(testColObj.programId).to.deep.equal(programId);
+    expect(testColObj.account).to.deep.equal(account);
+  });
+
+  it("Checking Schema Setter", () => {
     const spyReadDirElements = sinon.spy(testColObj, "readDirElements");
     
     testColObj.setSchema(testSchema);
@@ -80,34 +89,19 @@ describe("Test suite for Solana Schema Setter", () => {
       const dir = path.join(__dirname, '..', 'src', 'layers', layerObj.name);
       expect(spyReadDirElements.calledWith(dir)).to.be.true;
     });
-  });
 
-  it("Checking updated Schema attribute", () => {
-    testColObj.setSchema(testSchema);
     expect(testColObj.schema).to.exist;
-  });
-  
-  it("Checking updated Layers attribute", () => {
-    testColObj.setSchema(testSchema);
     expect(testColObj.layers)
       .to.be.an("array")
       .that.has.lengthOf(
         Object.keys(TEST_FAKE_DIR_STRUCTURE.src.layers).length
       );
   });
-});
-
-describe("Test suite for Generate Solana Method", () => {
-  beforeEach(() => {
-    mock(TEST_FAKE_DIR_STRUCTURE);
-    testColObj.setSchema(testSchema);
-  });
-  afterEach(() => {
-    mock.restore();
-  });
   
-  it("Checking File System Calls", async function () {
+  it("Checking Generate Method", async function () {
     this.timeout(10000);
+    testColObj.setSchema(testSchema);
+
     const mockCol = sinon.mock(testColObj);
     const expInitializeDir = mockCol.expects("initializeDir");
     const expSaveImage = mockCol.expects("saveImage");
@@ -128,35 +122,26 @@ describe("Test suite for Generate Solana Method", () => {
 
     mockCol.verify();
   });
-});
 
-describe("Test suite for SPL Token Methods", () => {
-  it("Checking createSPLTokenMint method", async () => {
-    const mockConnection = {
-      getMinimumBalanceForRentExemption: sinon.stub().resolves(1000000),
+  it("Checking updateMetadataWithCID Method", () => {
+    const fakeMetadataDir = {
+      "1.json": '{"name": "Test NFT 1", "image": "old_image_url"}',
+      "2.json": '{"name": "Test NFT 2", "image": "old_image_url"}',
     };
-    const mockPayer = Keypair.generate();
 
-    const sendAndConfirmTransactionStub = sinon.stub().resolves("fakeTxSignature");
-    sinon.replace(testColObj, "createSPLTokenMint", sendAndConfirmTransactionStub);
+    mock({
+      [path.join(TEST_COL_PATH, "metadata")]: fakeMetadataDir,
+    });
 
-    await testColObj.createSPLTokenMint(mockConnection as any, mockPayer);
+    testColObj.setBaseURL("https://example.com");
+    testColObj.setAssetsDirCID("QmTest123");
 
-    expect(sendAndConfirmTransactionStub.calledOnce).to.be.true;
-  });
+    testColObj.updateMetadataWithCID();
 
-  it("Checking mintSPLToken method", async () => {
-    const mockConnection = {} as Connection;
-    const mockPayer = Keypair.generate();
-    const mockRecipient = Keypair.generate().publicKey;
-
-    testColObj.splTokenMint = Keypair.generate().publicKey;
-
-    const sendAndConfirmTransactionStub = sinon.stub().resolves("fakeTxSignature");
-    sinon.replace(testColObj, "mintSPLToken", sendAndConfirmTransactionStub);
-
-    await testColObj.mintSPLToken(mockConnection, mockPayer, mockRecipient);
-
-    expect(sendAndConfirmTransactionStub.calledOnce).to.be.true;
+    Object.keys(fakeMetadataDir).forEach((fileName) => {
+      const filePath = path.join(TEST_COL_PATH, "metadata", fileName);
+      const updatedContent = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      expect(updatedContent.image).to.equal(`https://example.com/QmTest123/${path.parse(fileName).name}.png`);
+    });
   });
 });
