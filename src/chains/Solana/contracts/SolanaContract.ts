@@ -6,7 +6,7 @@ import { Idl } from '@project-serum/anchor';
 
 const wasmFilePath = '../../../../native/target/wasm32-unknown-unknown/debug/native.wasm';
 
-type networks = "devnet" | "testnet" | "mainnet-beta";
+type networks = "devnet" | "testnet" | "mainnet";
 
 export interface DraftOptions {
   // Solana-specific options
@@ -79,7 +79,6 @@ export class Contract {
   }
 
   draft(options: DraftOptions): void {
-    // const contractCode = ""; //
     const contractCode = `
       // Simple Solana smart contract
       program {
