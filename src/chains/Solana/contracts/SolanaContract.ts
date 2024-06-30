@@ -1,15 +1,23 @@
 import fs from "fs";
 import path from "path";
-import { SystemProgram, Keypair, Connection, Transaction, TransactionInstruction,
-   PublicKey, sendAndConfirmTransaction, Commitment} from "@solana/web3.js";
+import { 
+  SystemProgram, 
+  Keypair, 
+  Connection, 
+  Transaction, 
+  TransactionInstruction,
+  PublicKey, 
+  sendAndConfirmTransaction, 
+} from "@solana/web3.js";
 import { Idl } from '@project-serum/anchor';
+
+let spl_token: any;
 
 const wasmFilePath = '../../../../native/target/wasm32-unknown-unknown/debug/native.wasm';
 
 type networks = "devnet" | "testnet" | "mainnet";
 
 export interface DraftOptions {
-  // Solana-specific options
   payer: Keypair;
   programId: string;
   programData: Buffer;
@@ -21,10 +29,6 @@ export interface DeployConfigs {
   connection: Connection;
   payer: Keypair;
   idl: Idl;
-}
-
-interface DeployedInstance {
-  address: string;
 }
 
 export interface ContractAttributes {
@@ -53,6 +57,8 @@ export class Contract {
   deployedInstance: string | undefined = undefined;
   rpc: string;
 
+  splTokenMint: PublicKey | undefined;
+
   constructor(attr: ContractAttributes) {
     this.dir = attr.dir;
     this.name = attr.name;
@@ -65,6 +71,12 @@ export class Contract {
     this.deployedInstance = attr.deployed?.address;
     this.rpc = attr.connection.rpc;
     this.idl = attr.connection.idl;
+  }
+
+  private static async initSplToken() {
+    if (!spl_token) {
+      spl_token = await import('@solana/spl-token');
+    }
   }
 
   print(contractCode: string): void {
@@ -80,114 +92,178 @@ export class Contract {
 
   draft(options: DraftOptions): void {
     const contractCode = `
-      // Simple Solana smart contract
-      program {
-        // Define the state struct
-        struct State {
-          u64 count;
+      // Simple Solana smart contract with SPL token support
+      use anchor_lang::prelude::*;
+      use anchor_spl::token::{self, Token};
+
+      declare_id!("${options.programId}");
+
+      #[program]
+      pub mod ${this.name.toLowerCase()} {
+        use super::*;
+
+        pub fn initialize(ctx: Context<Initialize>) -> ProgramResult {
+          let counter = &mut ctx.accounts.counter;
+          counter.count = 0;
+          Ok(())
         }
 
-        // Define the program's entrypoint
-        entrypoint (ctx: Context, instructionData: Buffer) -> ProgramResult {
-          // Parse the instruction data
-          let instruction = parseInstruction(instructionData);
-
-          // Initialize the state
-          let state = State { count: 0 };
-
-          // Perform the requested action
-          if (instruction.method == "increment") {
-            state.count += instruction.args[0];
-          } else if (instruction.method == "decrement") {
-            state.count -= instruction.args[0];
-          }
-
-          // Serialize and save the state
-          let stateData = serialize(state);
-          let stateAccount = &mut ctx.accounts.state;
-          stateAccount.data = stateData;
-
-          // Return the updated state
-          return ProgramResult::Ok(stateData);
+        pub fn increment(ctx: Context<Increment>) -> ProgramResult {
+          let counter = &mut ctx.accounts.counter;
+          counter.count += 1;
+          Ok(())
         }
 
-        // Parse the instruction data
-        fn parseInstruction(instructionData: &[u8]) -> Instruction {
-          let instruction = deserialize(instructionData).unwrap();
-          return instruction;
+        pub fn mint_token(ctx: Context<MintToken>, amount: u64) -> ProgramResult {
+          token::mint_to(
+            CpiContext::new(
+              ctx.accounts.token_program.to_account_info(),
+              token::MintTo {
+                mint: ctx.accounts.mint.to_account_info(),
+                to: ctx.accounts.token_account.to_account_info(),
+                authority: ctx.accounts.payer.to_account_info(),
+              },
+            ),
+            amount,
+          )?;
+          Ok(())
         }
+      }
 
-        // Serialize the state
-        fn serialize(state: State) -> Vec<u8> {
-          let stateData = borsh::BorshSerialize::try_to_vec(&state).unwrap();
-          return stateData;
-        }
+      #[derive(Accounts)]
+      pub struct Initialize<'info> {
+        #[account(init, payer = payer, space = 8 + 8)]
+        pub counter: Account<'info, Counter>,
+        #[account(mut)]
+        pub payer: Signer<'info>,
+        pub system_program: Program<'info, System>,
+      }
 
-        // Deserialize the state
-        fn deserialize(stateData: &[u8]) -> Option<Instruction> {
-          let instruction = borsh::BorshDeserialize::try_from_slice(stateData).unwrap();
-          return instruction;
-        }
+      #[derive(Accounts)]
+      pub struct Increment<'info> {
+        #[account(mut)]
+        pub counter: Account<'info, Counter>,
+      }
 
-        // Define the instruction struct
-        #[derive(BorshSerialize, BorshDeserialize)]
-        struct Instruction {
-          method: String,
-          args: Vec<u64>,
-        }
+      #[derive(Accounts)]
+      pub struct MintToken<'info> {
+        #[account(mut)]
+        pub mint: Account<'info, token::Mint>,
+        #[account(mut)]
+        pub token_account: Account<'info, token::TokenAccount>,
+        #[account(mut)]
+        pub payer: Signer<'info>,
+        pub token_program: Program<'info, Token>,
+      }
+
+      #[account]
+      pub struct Counter {
+        pub count: u64,
       }
     `;
     this.print(contractCode);
     console.log(`Contract created : ${this.dir}`);
   }
 
-// Function to deploy a Solana smart contract
-// This code creates a new Solana program account, loads the provided 
-// bytecode into the account, and returns the program account's public key.
-async deployContract(connection: Connection, payer: Keypair): Promise<PublicKey> {
-  // Load the payer's account information
-  const payerAccountInfo = await connection.getAccountInfo(payer.publicKey);
-  if (!payerAccountInfo) {
-    throw new Error('Payer account not found');
+  async deployContract(connection: Connection, payer: Keypair): Promise<PublicKey> {
+    const payerAccountInfo = await connection.getAccountInfo(payer.publicKey);
+    if (!payerAccountInfo) {
+      throw new Error('Payer account not found');
+    }
+
+    const programBytes = fs.readFileSync(wasmFilePath);
+    const programAccount = new Keypair();
+    const programId = programAccount.publicKey;
+
+    const transaction = new Transaction().add(
+      SystemProgram.createAccount({
+        fromPubkey: payer.publicKey,
+        newAccountPubkey: programId,
+        lamports: await connection.getMinimumBalanceForRentExemption(programBytes.length),
+        space: programBytes.length,
+        programId: new PublicKey('BPFLoaderUpgradeab1e11111111111111111111111'),
+      })
+    );
+
+    const programBytesBuffer = Buffer.from(programBytes);
+
+    transaction.add(
+      new TransactionInstruction({
+        keys: [{ pubkey: programId, isWritable: true, isSigner: false }],
+        programId: new PublicKey('BPFLoaderUpgradeab1e11111111111111111111111'),
+        data: programBytesBuffer,
+      })
+    );
+
+    await sendAndConfirmTransaction(connection, transaction, [payer, programAccount]);
+
+    console.log(`Contract deployed with program ID: ${programId.toBase58()}`);
+    this.deployedInstance = programId.toBase58();
+
+    // Create SPL token mint after deployment
+    await this.createSPLTokenMint(connection, payer);
+
+    return programId;
   }
 
-  // Read the WASM file from disk
-  const programBytes = fs.readFileSync(wasmFilePath);
+  async createSPLTokenMint(connection: Connection, payer: Keypair): Promise<void> {
+    await Contract.initSplToken();
 
-  // Create a new account for the program
-  const programAccount = new Keypair();
-  const programId = programAccount.publicKey;
+    const mintKeypair = Keypair.generate();
+    this.splTokenMint = mintKeypair.publicKey;
 
-  // Build the transaction to deploy the program
-  const transaction = new Transaction().add(
-    SystemProgram.createAccount({
-      fromPubkey: payer.publicKey,
-      newAccountPubkey: programId,
-      lamports: await connection.getMinimumBalanceForRentExemption(programBytes.length),
-      space: programBytes.length,
-      programId: new PublicKey('11111111111111111111111111111111'), 
-    })
-  );
+    const lamports = await connection.getMinimumBalanceForRentExemption(spl_token.MINT_SIZE);
 
-  // Convert the Uint8Array to a Buffer for data parameter
-  const programBytesBuffer = Buffer.from(programBytes);
+    const transaction = new Transaction().add(
+      SystemProgram.createAccount({
+        fromPubkey: payer.publicKey,
+        newAccountPubkey: mintKeypair.publicKey,
+        space: spl_token.MINT_SIZE,
+        lamports,
+        programId: spl_token.TOKEN_PROGRAM_ID,
+      }),
+      spl_token.createInitializeMintInstruction(
+        mintKeypair.publicKey,
+        0,
+        payer.publicKey,
+        payer.publicKey
+      )
+    );
 
-  // Add an instruction to load the program bytes into the program account
-  transaction.add(
-    new TransactionInstruction({
-      keys: [{ pubkey: programId, isWritable: true, isSigner: false }],
-      programId: new PublicKey('11111111111111111111111111111111'), // System program ID
-      data: programBytesBuffer,
-    })
-  );
+    await sendAndConfirmTransaction(connection, transaction, [payer, mintKeypair]);
+    console.log(`SPL Token mint created: ${this.splTokenMint.toBase58()}`);
+  }
 
-  // Sign and send the transaction
-  await sendAndConfirmTransaction(connection, transaction, [payer]);
+  async mintSPLToken(connection: Connection, payer: Keypair, recipient: PublicKey, amount: number): Promise<void> {
+    await Contract.initSplToken();
 
-  console.log(`Contract deployed with program ID: ${programId.toBase58()}`);
+    if (!this.splTokenMint) {
+      throw new Error('SPL Token mint not created yet');
+    }
 
-  return programId;
-}
+    const associatedTokenAccount = await spl_token.getAssociatedTokenAddress(
+      this.splTokenMint,
+      recipient
+    );
+
+    const transaction = new Transaction().add(
+      spl_token.createAssociatedTokenAccountInstruction(
+        payer.publicKey,
+        associatedTokenAccount,
+        recipient,
+        this.splTokenMint
+      ),
+      spl_token.createMintToInstruction(
+        this.splTokenMint,
+        associatedTokenAccount,
+        payer.publicKey,
+        amount
+      )
+    );
+
+    await sendAndConfirmTransaction(connection, transaction, [payer]);
+    console.log(`Minted ${amount} tokens to ${recipient.toBase58()}`);
+  }
 
   async write(method: string, args: any[]): Promise<string> {
     if (!this.deployedInstance) {
@@ -207,7 +283,7 @@ async deployContract(connection: Connection, payer: Keypair): Promise<PublicKey>
       this.connection,
       transaction,
       [this.payer],
-      { commitment: "singleGossip", preflightCommitment: "singleGossip" }
+      { commitment: "confirmed", preflightCommitment: "confirmed" }
     );
 
     console.log(`Transaction ${signature} sent to ${this.deployedInstance}`);
@@ -222,24 +298,15 @@ async deployContract(connection: Connection, payer: Keypair): Promise<PublicKey>
     const programId = new PublicKey(this.programId);
     const programAccount = new PublicKey(this.deployedInstance);
     const instruction = new TransactionInstruction({
-      keys: [{ pubkey: programAccount, isSigner: false, isWritable: true }],
+      keys: [{ pubkey: programAccount, isSigner: false, isWritable: false }],
       programId,
       data: Buffer.from(JSON.stringify({ method, args })),
     });
 
-    const sendOptions = {
-      skipPreflight: false,
-      preflightCommitment: 'singleGossip' as Commitment,
-      commitment: 'singleGossip' as Commitment,
-      signers: [this.payer],
-    };
-
     const transaction = new Transaction().add(instruction);
-    const result = await this.connection.sendEncodedTransaction(
-      transaction.serialize().toString(),
-      sendOptions,// Create SendOptions object with signers property
-    );
-    console.log(`Result of ${method} call: ${result}`);
-    return result;
+    const simulationResult = await this.connection.simulateTransaction(transaction);
+
+    console.log(`Result of ${method} call: ${JSON.stringify(simulationResult.value)}`);
+    return simulationResult.value;
   }
 }
