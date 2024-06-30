@@ -53,8 +53,8 @@ const testSchema = {
   payer: Keypair.generate(), // Mock payer
 };
 
-const programId = new PublicKey("11111111111111111111111111111111");
-const account = new PublicKey("22222222222222222222222222222222");
+const programId = new PublicKey("3Fp6nVU22pfyv3jbLLoDHrj3yaNdKDWoe2qtCtbn38Bf");
+const account = new PublicKey("3Fp6nVU22pfyv3jbLLoDHrj3yaNdKDWoe2qtCtbn38Bf");
 
 const testColObj = new Collection({
   name: TEST_COL_NAME,

@@ -1,15 +1,23 @@
 import { readFileSync } from "fs";
 import path from "path";
 import { nftToolbox } from "../../../index";
+import { PublicKey } from "@solana/web3.js";
 
 const account = JSON.parse(
   readFileSync(path.join(__dirname, "account.json")).toString()
 );
 
+// Assuming account.json contains PROGRAM_ID and ACCOUNT_PUBLIC_KEY
+// If not, replace these with appropriate PublicKey values
+const programId = new PublicKey(account.PROGRAM_ID || "11111111111111111111111111111111");
+const accountPublicKey = new PublicKey(account.ACCOUNT_PUBLIC_KEY || "22222222222222222222222222222222");
+
 nftToolbox.initSolanaCollection({
   name: "Demo Collection - Solana",
   dir: path.join(__dirname, "Demo Collection - Solana"),
   description: "This is a demo collection for NFT Toolbox",
+  programId: programId,
+  account: accountPublicKey,
 });
 
 const uploadCollectionExample = async function () {
@@ -48,3 +56,6 @@ nftToolbox.initFileStorageService({
 });
 
 uploadCollectionExample();
+
+
+uploadSingleExample();
