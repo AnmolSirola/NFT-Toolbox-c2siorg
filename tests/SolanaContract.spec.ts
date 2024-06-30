@@ -9,7 +9,7 @@ import sinon from "sinon";
 
 const expect = chai.expect;
 
-const TEST_CONT_NAME = "Solana DemoNFT";
+const TEST_CONT_NAME = "Solana_DemoNFT";
 const TEST_CONT_PATH = path.join(os.tmpdir(), "Contracts");
 
 const test_specs = JSON.parse(
@@ -34,6 +34,13 @@ const testCont = new Contract({
 });
 
 describe("Test suite for Solana Contract Class", () => {
+  beforeEach(() => {
+    if (fs.existsSync(TEST_CONT_PATH)) {
+      fs.rmSync(TEST_CONT_PATH, { recursive: true, force: true });
+    }
+    fs.mkdirSync(TEST_CONT_PATH, { recursive: true });
+  });
+
   afterEach(() => {
     if (fs.existsSync(TEST_CONT_PATH)) {
       fs.rmSync(TEST_CONT_PATH, { recursive: true, force: true });
@@ -54,17 +61,17 @@ describe("Test suite for Solana Contract Class", () => {
       programData: programData,
     });
 
-    const contractFilePath = path.join(TEST_CONT_PATH, `${TEST_CONT_NAME}.sol`);
+    const contractFilePath = path.join(TEST_CONT_PATH, `${TEST_CONT_NAME}.rs`);
     console.log(`Contract file path: ${contractFilePath}`);
     console.log(`Current working directory: ${process.cwd()}`);
     console.log(`Contents of TEST_CONT_PATH directory: ${fs.readdirSync(TEST_CONT_PATH)}`);
 
-    expect(fs.existsSync(contractFilePath)).to.be.true;
+    expect(fs.existsSync(contractFilePath), `File ${contractFilePath} does not exist`).to.be.true;
 
     const contractContent = fs.readFileSync(contractFilePath, 'utf8');
     expect(contractContent).to.include("use anchor_lang::prelude::*");
     expect(contractContent).to.include("pub struct Counter");
-    expect(contractContent).to.include("pub fn increment(ctx: Context<Increment>) -> ProgramResult");
+    expect(contractContent).to.include("pub fn increment(ctx: Context<Increment>) -> Result<()>");
   });
 
   it("Checking Deploy Solana Contract Method", async () => {

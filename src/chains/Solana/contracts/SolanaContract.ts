@@ -71,18 +71,15 @@ export class Contract {
 
   print(contractCode: string): void {
     if (!fs.existsSync(this.dir)) {
-      fs.mkdirSync(this.dir);
+      fs.mkdirSync(this.dir, { recursive: true });
     }
-    fs.writeFileSync(
-      path.join(this.dir.toString(), `${this.name}.sol`),
-      contractCode,
-      { flag: "w" }
-    );
+    const filePath = path.join(this.dir.toString(), `${this.name}.rs`);
+    fs.writeFileSync(filePath, contractCode, { flag: "w" });
+    console.log(`Contract created : ${filePath}`);
   }
 
   draft(options: DraftOptions): void {
     const contractCode = `
-      // Simple Solana smart contract
       use anchor_lang::prelude::*;
 
       declare_id!("${options.programId}");
@@ -91,13 +88,13 @@ export class Contract {
       pub mod ${this.name.toLowerCase()} {
         use super::*;
 
-        pub fn initialize(ctx: Context<Initialize>) -> ProgramResult {
+        pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
           let counter = &mut ctx.accounts.counter;
           counter.count = 0;
           Ok(())
         }
 
-        pub fn increment(ctx: Context<Increment>) -> ProgramResult {
+        pub fn increment(ctx: Context<Increment>) -> Result<()> {
           let counter = &mut ctx.accounts.counter;
           counter.count += 1;
           Ok(())
@@ -125,9 +122,7 @@ export class Contract {
       }
     `;
     this.print(contractCode);
-    console.log(`Contract created : ${this.dir}`);
   }
-
   async deployContract(connection: Connection, payer: Keypair): Promise<PublicKey> {
     const payerAccountInfo = await connection.getAccountInfo(payer.publicKey);
     if (!payerAccountInfo) {
