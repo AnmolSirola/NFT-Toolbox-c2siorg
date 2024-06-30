@@ -84,7 +84,7 @@ export class Contract {
       fs.mkdirSync(this.dir);
     }
     fs.writeFileSync(
-      path.join(this.dir.toString(), `${this.name}.sol`),
+      path.join(this.dir.toString(), `${this.name}.rs`),
       contractCode,
       { flag: "w" }
     );

@@ -54,7 +54,7 @@ describe("Test suite for Solana Contract Class", () => {
       programData: programData,
     });
 
-    const contractFilePath = path.join(TEST_CONT_PATH, `${TEST_CONT_NAME}.sol`);
+    const contractFilePath = path.join(TEST_CONT_PATH, `${TEST_CONT_NAME}.rs`);
     console.log(`Contract file path: ${contractFilePath}`);
     console.log(`Current working directory: ${process.cwd()}`);
     console.log(`Contents of TEST_CONT_PATH directory: ${fs.readdirSync(TEST_CONT_PATH)}`);
@@ -121,6 +121,44 @@ describe("Test suite for Solana Contract Class", () => {
       ), "mintSPLToken should be called with correct arguments").to.be.true;
     } catch (error) {
       console.error("Error in Mint SPL Token Method test:", error);
+      throw error;
+    }
+  });
+
+  it("Checking Write Method", async () => {
+    const method = "increment";
+    const args = [];
+    const expectedSignature = "fakeSignature";
+
+    const writeStub = sinon.stub(testCont, "write").resolves(expectedSignature);
+
+    try {
+      const result = await testCont.write(method, args);
+      
+      expect(writeStub.calledOnce, "write should be called once").to.be.true;
+      expect(writeStub.calledWith(method, args), "write should be called with correct arguments").to.be.true;
+      expect(result).to.equal(expectedSignature, "Returned signature should match expected");
+    } catch (error) {
+      console.error("Error in Write Method test:", error);
+      throw error;
+    }
+  });
+
+  it("Checking Read Method", async () => {
+    const method = "getCount";
+    const args = [];
+    const expectedResult = { count: 5 };
+
+    const readStub = sinon.stub(testCont, "read").resolves(expectedResult);
+
+    try {
+      const result = await testCont.read(method, args);
+      
+      expect(readStub.calledOnce, "read should be called once").to.be.true;
+      expect(readStub.calledWith(method, args), "read should be called with correct arguments").to.be.true;
+      expect(result).to.deep.equal(expectedResult, "Returned result should match expected");
+    } catch (error) {
+      console.error("Error in Read Method test:", error);
       throw error;
     }
   });
