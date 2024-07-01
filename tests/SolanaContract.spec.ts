@@ -70,8 +70,9 @@ describe("Test suite for Solana Contract Class", () => {
 
     const contractContent = fs.readFileSync(contractFilePath, 'utf8');
     expect(contractContent).to.include("use anchor_lang::prelude::*");
-    expect(contractContent).to.include("pub struct Counter");
-    expect(contractContent).to.include("pub fn increment(ctx: Context<Increment>) -> Result<()>");
+    expect(contractContent).to.include("pub struct NFT");
+    expect(contractContent).to.include("pub fn mint_nft(ctx: Context<MintNFT>, uri: String) -> Result<()>");
+    expect(contractContent).to.include("pub fn transfer_nft(ctx: Context<TransferNFT>) -> Result<()>");
   });
 
   it("Checking Deploy Solana Contract Method", async () => {
@@ -92,13 +93,13 @@ describe("Test suite for Solana Contract Class", () => {
   });
 
   it("Checking Read Solana Contract Method", async () => {
-    const readStub = sinon.stub(testCont, "read").resolves({ count: 5 });
+    const readStub = sinon.stub(testCont, "read").resolves({ owner: "FakeOwnerPublicKey", uri: "https://example.com/nft", minted: true });
 
     try {
-      const result = await testCont.read("getCount", []);
+      const result = await testCont.read("getNFTInfo", ["FakeNFTAddress"]);
       
       expect(readStub.calledOnce, "read should be called once").to.be.true;
-      expect(result).to.deep.equal({ count: 5 }, "Read result should match expected");
+      expect(result).to.deep.equal({ owner: "FakeOwnerPublicKey", uri: "https://example.com/nft", minted: true }, "Read result should match expected");
     } catch (error) {
       console.error("Error in Read Solana Contract Method test:", error);
       throw error;
@@ -109,9 +110,10 @@ describe("Test suite for Solana Contract Class", () => {
     const writeStub = sinon.stub(testCont, "write").resolves("fakeTxSignature");
 
     try {
-      const result = await testCont.write("increment", []);
+      const result = await testCont.write("mint_nft", ["https://example.com/nft"]);
       
       expect(writeStub.calledOnce, "write should be called once").to.be.true;
+      expect(writeStub.calledWith("mint_nft", ["https://example.com/nft"]), "write should be called with correct arguments").to.be.true;
       expect(result).to.equal("fakeTxSignature", "Write result should be a transaction signature");
     } catch (error) {
       console.error("Error in Write Solana Contract Method test:", error);

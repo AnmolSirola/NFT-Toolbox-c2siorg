@@ -9,6 +9,7 @@ import {
   PublicKey, 
   sendAndConfirmTransaction, 
 } from "@solana/web3.js";
+
 import { Idl } from '@project-serum/anchor';
 
 const wasmFilePath = '../../../../native/target/wasm32-unknown-unknown/debug/native.wasm';
@@ -86,43 +87,51 @@ export class Contract {
 
       #[program]
       pub mod ${this.name.toLowerCase()} {
-        use super::*;
+          use super::*;
 
-        pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-          let counter = &mut ctx.accounts.counter;
-          counter.count = 0;
-          Ok(())
-        }
+          pub fn mint_nft(ctx: Context<MintNFT>, uri: String) -> Result<()> {
+              let nft = &mut ctx.accounts.nft;
+              nft.owner = *ctx.accounts.owner.key;
+              nft.uri = uri;
+              nft.minted = true;
+              Ok(())
+          }
 
-        pub fn increment(ctx: Context<Increment>) -> Result<()> {
-          let counter = &mut ctx.accounts.counter;
-          counter.count += 1;
-          Ok(())
-        }
+          pub fn transfer_nft(ctx: Context<TransferNFT>) -> Result<()> {
+              let nft = &mut ctx.accounts.nft;
+              nft.owner = *ctx.accounts.new_owner.key;
+              Ok(())
+          }
       }
 
       #[derive(Accounts)]
-      pub struct Initialize<'info> {
-        #[account(init, payer = payer, space = 8 + 8)]
-        pub counter: Account<'info, Counter>,
-        #[account(mut)]
-        pub payer: Signer<'info>,
-        pub system_program: Program<'info, System>,
+      pub struct MintNFT<'info> {
+          #[account(init, payer = owner, space = 8 + 32 + 200 + 1)]
+          pub nft: Account<'info, NFT>,
+          #[account(mut)]
+          pub owner: Signer<'info>,
+          pub system_program: Program<'info, System>,
       }
 
       #[derive(Accounts)]
-      pub struct Increment<'info> {
-        #[account(mut)]
-        pub counter: Account<'info, Counter>,
+      pub struct TransferNFT<'info> {
+          #[account(mut, has_one = owner)]
+          pub nft: Account<'info, NFT>,
+          pub owner: Signer<'info>,
+          /// CHECK: This is not dangerous because we don't read or write from this account
+          pub new_owner: AccountInfo<'info>,
       }
 
       #[account]
-      pub struct Counter {
-        pub count: u64,
+      pub struct NFT {
+          pub owner: Pubkey,
+          pub uri: String,
+          pub minted: bool,
       }
     `;
     this.print(contractCode);
   }
+
   async deployContract(connection: Connection, payer: Keypair): Promise<PublicKey> {
     const payerAccountInfo = await connection.getAccountInfo(payer.publicKey);
     if (!payerAccountInfo) {
