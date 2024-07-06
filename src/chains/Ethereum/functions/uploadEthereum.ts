@@ -14,7 +14,7 @@ nftToolbox.initEthereumCollection({
 });
 
 const uploadCollectionExample = async function () {
-	const res = await nftToolbox.uploadCollectionNFT();
+	const res = await nftToolbox.uploadEthereumCollectionNFT();
 	console.log(res);
 };
 

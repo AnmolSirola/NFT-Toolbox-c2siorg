@@ -19,14 +19,14 @@ nftToolbox.initEthereumContract({
 const demoMintNFT = async () => {
 	const address = "0x7304Cf13eEE8c8C20C6569E2024fB9079184F430";
 
-	let bal = await nftToolbox.readContract("balanceOf", [address]);
+	let bal = await nftToolbox.readEthereumContract("balanceOf", [address]);
 	console.log("Balance: ", bal.toString());
 
 	console.log("Minting New Token");
-	const tx = await nftToolbox.writeContract("safeMint", [address]);
+	const tx = await nftToolbox.writeEthereumContract("safeMint", [address]);
 	await tx.wait();
 
-	bal = await nftToolbox.readContract("balanceOf", [address]);
+	bal = await nftToolbox.readEthereumContract("balanceOf", [address]);
 	console.log("Balance: ", bal.toString());
 };
 

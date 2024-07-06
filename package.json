@@ -9,14 +9,14 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/scorelab/NFT-Toolbox.git"
+		"url": "git+https://github.com/c2siorg/NFT-Toolbox.git"
 	},
 	"author": "",
 	"license": "Apache-2.0",
 	"bugs": {
-		"url": "https://github.com/scorelab/NFT-Toolbox/issues"
+		"url": "https://github.com/c2siorg/NFT-Toolbox/issues"
 	},
-	"homepage": "https://github.com/scorelab/NFT-Toolbox#readme",
+	"homepage": "https://github.com/c2siorg/NFT-Toolbox#readme",
 	"devDependencies": {
 		"@pinata/sdk": "^1.1.26",
 		"@types/chai": "^4.3.1",
@@ -44,8 +44,13 @@
 		"@irys/sdk": "^0.2.1",
 		"@openzeppelin/contracts": "^4.7.1",
 		"@openzeppelin/wizard": "^0.1.1",
+		"@project-serum/anchor": "^0.26.0",
+		"@solana/spl-token": "^0.4.7",
+		"@solana/web3.js": "^1.94.0",
+		"aptos": "^1.21.0",
 		"axios": "^0.27.2",
 		"bignumber.js": "^9.1.0",
+		"bn.js": "^5.2.1",
 		"canvas": "^2.11.2",
 		"child-process": "^1.0.2",
 		"ethers": "^5.6.9",
