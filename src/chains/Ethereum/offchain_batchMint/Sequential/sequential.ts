@@ -16,8 +16,8 @@ const myNFTContract = new web3.eth.Contract(
 );
 
 // Pinata API credentials f
-const PINATA_API_KEY = 'cab1fe2327f90513a199';
-const PINATA_SECRET_API_KEY = '0f477c4131a1ddc2dd3d35c47d33a95cbffbff10fcce0d27945fa2e3802de6a3';
+const PINATA_API_KEY = 'd73c7f3c2620581dc7e1';
+const PINATA_SECRET_API_KEY = '6c11fbb74a22fd6ff235fbfa8641dde8c3eb4efffa73d30ca7cdf71e649dd0d6';
 
 // Function to upload an image file to IPFS using Pinata
 async function uploadToIPFS(tokenId: number, imagePath: string) {

@@ -11,8 +11,8 @@ import MyNFT from "./tree.json";
 const web3 = new Web3('https://sepolia.infura.io/v3/b1174536ea344728a2d2eab8aa405f12');
 const myNFTContract = new web3.eth.Contract(MyNFT as AbiItem[], '0xf5C2232A42B89Ff64cCE52BB6f5A0a2beB3F73f0');
 
-const PINATA_API_KEY = 'cab1fe2327f90513a199';
-const PINATA_SECRET_API_KEY = '0f477c4131a1ddc2dd3d35c47d33a95cbffbff10fcce0d27945fa2e3802de6a3';
+const PINATA_API_KEY = 'd73c7f3c2620581dc7e1';
+const PINATA_SECRET_API_KEY = '6c11fbb74a22fd6ff235fbfa8641dde8c3eb4efffa73d30ca7cdf71e649dd0d6';
 
 async function uploadToIPFS(tokenId: number, imagePath: string) {
   try {
